@@ -30,7 +30,7 @@ export interface FoodTemplate {
   vegan: boolean;
   vegetarian: boolean;
   priceMXN: number | null;
-  bamPriceKey: string;
+  bamPriceKey?: string;
 }
 
 export const FOODS: FoodTemplate[] = [
