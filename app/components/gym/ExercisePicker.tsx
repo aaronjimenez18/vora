@@ -191,13 +191,13 @@ export default function ExercisePicker({
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center">
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-3 sm:p-6 pb-24 sm:pb-6 bg-black/75 backdrop-blur-md animate-fade-in-up">
       <button
         aria-label="Cerrar"
         onClick={onClose}
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className="absolute inset-0"
       />
-      <div className="glass-modal-panel relative w-full max-w-md max-h-[86vh] flex flex-col rounded-b-none rounded-t-[32px] animate-fade-in-up">
+      <div className="glass-modal-panel relative w-full max-w-md max-h-[78vh] sm:max-h-[82vh] flex flex-col rounded-2xl sm:rounded-3xl overflow-hidden shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between px-6 pt-6 pb-3">
           <div>

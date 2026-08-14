@@ -258,6 +258,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const saved = localStorage.getItem("vora-state");
       if (saved) {
         const parsed = JSON.parse(saved) as Partial<AppState>;
+        if (parsed.water && parsed.water.date !== today) {
+          parsed.water = { date: today, glasses: 0, goal: parsed.water.goal || 8 };
+        }
         dispatch({ type: "LOAD_STATE", state: parsed });
       }
     } catch {}

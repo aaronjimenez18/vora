@@ -113,6 +113,17 @@ export default function WorkoutView() {
   const [volDraft, setVolDraft] = useState<Record<string, VolDraft>>({});
   const [picker, setPicker] = useState<{ mode: "add" | "swap"; index?: number } | null>(null);
   const [info, setInfo] = useState<{ exercise: Exercise; unilateral?: boolean } | null>(null);
+  const [openMotor, setOpenMotor] = useState<Record<string, boolean>>({});
+
+  const getCustomLabel = (row: SetRow) => {
+    if (row.pain === "red") return "🔴 Dolor";
+    if (row.pain === "yellow") return "🟡 Dolor";
+    if (row.technicalFailure) return "⚠️ Fallo";
+    if (!row.technique) return "⚠️ Técnica";
+    if (row.velocity === "fast") return "⚡ Rápida";
+    if (row.velocity === "slow") return "🐢 Lenta";
+    return "Ajustado";
+  };
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -542,7 +553,7 @@ export default function WorkoutView() {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 text-[11px] text-[#a1a1aa]">
+                    <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-[#a1a1aa]">
                       <span>series</span>
                       <input
                         type="number"
@@ -550,7 +561,7 @@ export default function WorkoutView() {
                         value={v.sets}
                         onChange={(e) => setVolField(ex, "sets", e.target.value)}
                         onBlur={() => commitVol(ex, "sets")}
-                        className="input-pill !py-1.5 w-14 !text-center text-xs"
+                        className="input-pill !px-2 !py-1 w-11 sm:w-12 !text-center text-xs"
                       />
                       <span>reps</span>
                       <input
@@ -559,7 +570,7 @@ export default function WorkoutView() {
                         value={v.repsLow}
                         onChange={(e) => setVolField(ex, "repsLow", e.target.value)}
                         onBlur={() => commitVol(ex, "repsLow")}
-                        className="input-pill !py-1.5 w-14 !text-center text-xs"
+                        className="input-pill !px-2 !py-1 w-11 sm:w-12 !text-center text-xs"
                       />
                       <span>–</span>
                       <input
@@ -568,7 +579,7 @@ export default function WorkoutView() {
                         value={v.repsHigh}
                         onChange={(e) => setVolField(ex, "repsHigh", e.target.value)}
                         onBlur={() => commitVol(ex, "repsHigh")}
-                        className="input-pill !py-1.5 w-14 !text-center text-xs"
+                        className="input-pill !px-2 !py-1 w-11 sm:w-12 !text-center text-xs"
                       />
                       <span>rir</span>
                       <input
@@ -577,7 +588,7 @@ export default function WorkoutView() {
                         value={v.rir}
                         onChange={(e) => setVolField(ex, "rir", e.target.value)}
                         onBlur={() => commitVol(ex, "rir")}
-                        className="input-pill !py-1.5 w-14 !text-center text-xs"
+                        className="input-pill !px-2 !py-1 w-11 sm:w-12 !text-center text-xs"
                       />
                     </div>
 
@@ -621,8 +632,8 @@ export default function WorkoutView() {
                     : null;
                   const e1rm = ex.exercise_id ? e1RMs.get(ex.exercise_id)?.e1rm : undefined;
                   return (
-                    <div key={ex.id} className="glass-floating p-5">
-                      <div className="flex items-center justify-between mb-3">
+                    <div key={ex.id} className="glass-floating p-4 sm:p-5">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 sm:gap-2 mb-3">
                         <div className="flex items-center gap-2 min-w-0">
                           <span className="text-sm text-[#f4f4f0] font-medium truncate">
                             {ex.custom_name ?? "Ejercicio"}
@@ -641,12 +652,12 @@ export default function WorkoutView() {
                             </span>
                           )}
                         </div>
-                        <span className="label-caps">
+                        <span className="label-caps shrink-0 !text-[9px] sm:!text-[10px]">
                           {ex.sets ?? 3}×{ex.reps_low ?? 10}-{ex.reps_high ?? 12}
                           {band ? ` · rir ${band.min}-${band.max}` : ""}
                         </span>
                       </div>
-                      <div className="flex flex-col gap-2">
+                      <div className="flex flex-col gap-2.5">
                         {Array.from({ length: ex.sets ?? 3 }, (_, sIdx) => {
                           const row = grid[exIdx]?.[sIdx] ?? {
                             weight: "",
@@ -657,17 +668,29 @@ export default function WorkoutView() {
                             pain: "green",
                             technicalFailure: false,
                           } as SetRow;
+
+                          const motorKey = `${exIdx}-${sIdx}`;
+                          const isMotorOpen = !!openMotor[motorKey];
+                          const isCustomized =
+                            row.velocity !== "normal" ||
+                            !row.technique ||
+                            row.technicalFailure ||
+                            row.pain !== "green";
+
+                          const toggleMotor = () =>
+                            setOpenMotor((prev) => ({ ...prev, [motorKey]: !prev[motorKey] }));
+
                           return (
-                            <div key={sIdx} className="flex flex-col gap-1.5">
-                              <div className="flex items-center gap-2">
-                                <span className="font-mono-num text-[10px] text-[#52525b] w-4">
+                            <div key={sIdx} className="flex flex-col gap-1.5 pb-2 border-b border-white/[0.04] last:border-0 last:pb-0">
+                              <div className="flex items-center gap-1.5 sm:gap-2 w-full">
+                                <span className="font-mono-num text-[10px] text-[#52525b] w-3.5 shrink-0 text-center">
                                   {sIdx + 1}
                                 </span>
                                 <input
                                   type="number"
                                   inputMode="decimal"
                                   placeholder="kg"
-                                  className="input-pill flex-1 !py-2 text-xs"
+                                  className="input-pill !px-2.5 !py-1.5 flex-1 min-w-0 text-center text-xs"
                                   value={row.weight}
                                   onChange={(e) => setCell(exIdx, sIdx, "weight", e.target.value)}
                                 />
@@ -675,7 +698,7 @@ export default function WorkoutView() {
                                   type="number"
                                   inputMode="numeric"
                                   placeholder="reps"
-                                  className="input-pill flex-1 !py-2 text-xs"
+                                  className="input-pill !px-2.5 !py-1.5 flex-1 min-w-0 text-center text-xs"
                                   value={row.reps}
                                   onChange={(e) => setCell(exIdx, sIdx, "reps", e.target.value)}
                                 />
@@ -683,61 +706,86 @@ export default function WorkoutView() {
                                   type="number"
                                   inputMode="numeric"
                                   placeholder="rir"
-                                  className="input-pill w-14 !py-2 text-xs"
+                                  className="input-pill !px-2 !py-1.5 w-11 sm:w-12 shrink-0 text-center text-xs"
                                   value={row.rir}
                                   onChange={(e) => setCell(exIdx, sIdx, "rir", e.target.value)}
                                 />
-                              </div>
-                              <div className="flex items-center gap-1.5 pl-6">
-                                <span className="label-caps !text-[8px] w-12 shrink-0">vel</span>
-                                {VELOCITY_OPTS.map((o) => (
-                                  <MotorChip
-                                    key={o.v}
-                                    active={row.velocity === o.v}
-                                    onClick={() => setMotor(exIdx, sIdx, "velocity", o.v)}
-                                  >
-                                    {o.label}
-                                  </MotorChip>
-                                ))}
-                                <span className="w-2 shrink-0" />
                                 <button
-                                  onClick={() => setMotor(exIdx, sIdx, "technique", !row.technique)}
-                                  className={`px-2 py-1 rounded-full text-[10px] border transition-all ${
-                                    row.technique
-                                      ? "bg-[#a3e635] text-[#09090b] border-[#a3e635]"
-                                      : "bg-[#f87171]/20 text-[#f87171] border-[#f87171]/50"
+                                  onClick={toggleMotor}
+                                  className={`px-2 py-1.5 rounded-full text-[10px] border transition-all shrink-0 flex items-center gap-1 ${
+                                    isCustomized
+                                      ? "bg-[#a3e635]/15 text-[#a3e635] border-[#a3e635]/40"
+                                      : isMotorOpen
+                                        ? "bg-white/[0.08] text-[#f4f4f0] border-white/[0.2]"
+                                        : "bg-white/[0.03] text-[#71717a] border-white/[0.06] hover:text-[#a1a1aa]"
                                   }`}
-                                  title="Técnica estable"
+                                  title="Ajustar velocidad, técnica o dolor de ejecución"
                                 >
-                                  Técnica
-                                </button>
-                                <button
-                                  onClick={() =>
-                                    setMotor(exIdx, sIdx, "technicalFailure", !row.technicalFailure)
-                                  }
-                                  className={`px-2 py-1 rounded-full text-[10px] border transition-all ${
-                                    row.technicalFailure
-                                      ? "bg-[#f87171] text-[#09090b] border-[#f87171]"
-                                      : "bg-white/[0.04] text-[#a1a1aa] border-white/[0.08]"
-                                  }`}
-                                  title="Fallo técnico en la serie"
-                                >
-                                  Fallo
+                                  <span className="material-symbols-outlined text-[13px]">tune</span>
+                                  <span className="hidden sm:inline">
+                                    {isCustomized ? getCustomLabel(row) : "Calidad"}
+                                  </span>
                                 </button>
                               </div>
-                              <div className="flex items-center gap-1.5 pl-6">
-                                <span className="label-caps !text-[8px] w-12 shrink-0">dolor</span>
-                                {PAIN_OPTS.map((o) => (
-                                  <MotorChip
-                                    key={o.v}
-                                    active={row.pain === o.v}
-                                    onClick={() => setMotor(exIdx, sIdx, "pain", o.v)}
-                                    activeCls={o.activeCls}
-                                  >
-                                    {o.label}
-                                  </MotorChip>
-                                ))}
-                              </div>
+
+                              {isMotorOpen && (
+                                <div className="flex flex-col gap-2 p-3 mt-1 rounded-2xl bg-white/[0.02] border border-white/[0.06] animate-fade-in-up">
+                                  <div className="flex items-center justify-between">
+                                    <span className="label-caps !text-[8px] text-[#a1a1aa]">ajustar ejecución · serie {sIdx + 1}</span>
+                                    <button onClick={toggleMotor} className="text-[10px] text-[#71717a] hover:text-[#f4f4f0]">
+                                      Cerrar ✕
+                                    </button>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="label-caps !text-[8px] w-10 shrink-0">vel</span>
+                                    {VELOCITY_OPTS.map((o) => (
+                                      <MotorChip
+                                        key={o.v}
+                                        active={row.velocity === o.v}
+                                        onClick={() => setMotor(exIdx, sIdx, "velocity", o.v)}
+                                      >
+                                        {o.label}
+                                      </MotorChip>
+                                    ))}
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="label-caps !text-[8px] w-10 shrink-0">técnica</span>
+                                    <button
+                                      onClick={() => setMotor(exIdx, sIdx, "technique", !row.technique)}
+                                      className={`px-2.5 py-1 rounded-full text-[10px] border transition-all ${
+                                        row.technique
+                                          ? "bg-[#a3e635] text-[#09090b] border-[#a3e635]"
+                                          : "bg-[#f87171]/20 text-[#f87171] border-[#f87171]/50"
+                                      }`}
+                                    >
+                                      {row.technique ? "Estable ✓" : "Inestable ✕"}
+                                    </button>
+                                    <button
+                                      onClick={() => setMotor(exIdx, sIdx, "technicalFailure", !row.technicalFailure)}
+                                      className={`px-2.5 py-1 rounded-full text-[10px] border transition-all ${
+                                        row.technicalFailure
+                                          ? "bg-[#f87171] text-[#09090b] border-[#f87171]"
+                                          : "bg-white/[0.04] text-[#a1a1aa] border-white/[0.08]"
+                                      }`}
+                                    >
+                                      {row.technicalFailure ? "Fallo" : "Sin fallo"}
+                                    </button>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="label-caps !text-[8px] w-10 shrink-0">dolor</span>
+                                    {PAIN_OPTS.map((o) => (
+                                      <MotorChip
+                                        key={o.v}
+                                        active={row.pain === o.v}
+                                        onClick={() => setMotor(exIdx, sIdx, "pain", o.v)}
+                                        activeCls={o.activeCls}
+                                      >
+                                        {o.label}
+                                      </MotorChip>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           );
                         })}

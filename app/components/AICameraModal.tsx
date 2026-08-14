@@ -111,6 +111,21 @@ export default function AICameraModal({ onClose }: { onClose: () => void }) {
                 <span className="label-caps block mt-1">Grasas</span>
               </div>
             </div>
+            <div className="flex gap-1 mt-2">
+              {(["breakfast", "lunch", "dinner", "snack"] as const).map((cat) => (
+                <button
+                  key={cat}
+                  onClick={() => setCategory(cat)}
+                  className={`px-2.5 py-1 rounded-full text-[10px] font-medium transition-all ${
+                    category === cat
+                      ? "bg-[#a3e635] text-[#09090b]"
+                      : "bg-white/[0.04] text-[#a1a1aa]"
+                  }`}
+                >
+                  {cat === "breakfast" ? "Desayuno" : cat === "lunch" ? "Comida" : cat === "dinner" ? "Cena" : "Snack"}
+                </button>
+              ))}
+            </div>
           </div>
         )}
       </div>

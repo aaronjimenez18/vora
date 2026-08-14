@@ -53,13 +53,13 @@ export default function ProgressionSummary({
   const pending = items.filter((i) => !appliedIds.has(i.decision.id));
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center">
+    <div className="fixed inset-0 z-[75] flex items-center justify-center p-3 sm:p-6 pb-24 sm:pb-6 bg-black/75 backdrop-blur-md animate-fade-in-up">
       <button
         aria-label="Cerrar"
         onClick={onClose}
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className="absolute inset-0"
       />
-      <div className="glass-modal-panel relative w-full max-w-md max-h-[82vh] overflow-y-auto rounded-b-none rounded-t-[32px] p-6 flex flex-col gap-5 animate-fade-in-up">
+      <div className="glass-modal-panel relative w-full max-w-md max-h-[78vh] sm:max-h-[82vh] overflow-y-auto rounded-2xl sm:rounded-3xl p-6 flex flex-col gap-5 shadow-2xl">
         <div className="flex items-start justify-between gap-3">
           <div>
             <span className="label-caps block mb-1.5">análisis de la sesión</span>

@@ -164,22 +164,26 @@ export default function TodayView({ onNavigate }: { onNavigate: (tab: TabId) => 
         {logs.length === 0 ? (
           <Empty icon="restaurant" title="Todavía no registras comidas hoy.">
             {diet && (
-              <div className="flex items-center gap-2 mt-2 w-full">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 mt-3 w-full max-w-full">
                 <select
                   value={pickMeal}
                   onChange={(e) => setPickMeal(e.target.value)}
-                  className="input-pill flex-1 text-xs"
+                  className="input-pill flex-1 text-xs truncate max-w-full bg-[#18181b] min-w-0"
                 >
                   <option value="">Elegir comida del plan…</option>
                   {diet.meals
-                    .filter((m) => m.day_type === "training")
+                    .filter((m) => m.day_type === (isTrainingDay ? "training" : "rest") || diet.meals.every(x => x.day_type !== (isTrainingDay ? "training" : "rest")))
                     .map((m) => (
                       <option key={m.id} value={m.id}>
                         {m.name} · {m.calories} kcal
                       </option>
                     ))}
                 </select>
-                <button onClick={handleAddLog} disabled={!pickMeal} className="btn-pill-primary text-xs py-2">
+                <button
+                  onClick={handleAddLog}
+                  disabled={!pickMeal}
+                  className="btn-pill-primary text-xs py-2.5 px-4 shrink-0 w-full sm:w-auto"
+                >
                   Añadir
                 </button>
               </div>
@@ -187,23 +191,23 @@ export default function TodayView({ onNavigate }: { onNavigate: (tab: TabId) => 
           </Empty>
         ) : (
           <>
-            <div className="glass-floating divide-y divide-white/[0.06]">
+            <div className="glass-floating divide-y divide-white/[0.06] overflow-hidden">
               {logs.map((m) => (
-                <div key={m.id} className="flex items-center justify-between gap-3 py-3.5 px-5">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
+                <div key={m.id} className="flex items-center justify-between gap-3 py-3.5 px-4 sm:px-5">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-xs text-[#f4f4f0] truncate">{m.custom_name}</span>
-                      <span className="label-caps !text-[8px]">{m.meal_type}</span>
+                      <span className="label-caps !text-[8px] shrink-0">{m.meal_type}</span>
                     </div>
-                    <span className="font-mono-num text-[10px] text-[#52525b]">
+                    <span className="font-mono-num text-[10px] text-[#52525b] block truncate mt-0.5">
                       P{m.protein_g ?? 0} · C{m.carbs_g ?? 0} · F{m.fat_g ?? 0}
                     </span>
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 shrink-0">
                     <span className="font-mono-num text-xs text-[#f4f4f0]">{m.calories} kcal</span>
                     <button
                       onClick={() => handleDelete(m.id)}
-                      className="text-[#52525b] hover:text-[#f87171] transition-colors"
+                      className="text-[#52525b] hover:text-[#f87171] transition-colors p-1"
                     >
                       <span className="material-symbols-outlined text-[16px]">close</span>
                     </button>
@@ -213,22 +217,26 @@ export default function TodayView({ onNavigate }: { onNavigate: (tab: TabId) => 
             </div>
 
             {diet && (
-              <div className="flex items-center gap-2">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                 <select
                   value={pickMeal}
                   onChange={(e) => setPickMeal(e.target.value)}
-                  className="input-pill flex-1 text-xs"
+                  className="input-pill flex-1 text-xs truncate max-w-full bg-[#18181b] min-w-0"
                 >
                   <option value="">Registrar comida del plan…</option>
                   {diet.meals
-                    .filter((m) => m.day_type === "training")
+                    .filter((m) => m.day_type === (isTrainingDay ? "training" : "rest") || diet.meals.every(x => x.day_type !== (isTrainingDay ? "training" : "rest")))
                     .map((m) => (
                       <option key={m.id} value={m.id}>
                         {m.name} · {m.calories} kcal
                       </option>
                     ))}
                 </select>
-                <button onClick={handleAddLog} disabled={!pickMeal} className="btn-pill-primary text-xs py-2">
+                <button
+                  onClick={handleAddLog}
+                  disabled={!pickMeal}
+                  className="btn-pill-primary text-xs py-2.5 px-4 shrink-0 w-full sm:w-auto"
+                >
                   Añadir
                 </button>
               </div>

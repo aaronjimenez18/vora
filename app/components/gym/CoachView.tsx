@@ -54,7 +54,8 @@ export default function CoachView() {
           .filter((m) => !logs.some((l) => l.custom_name === m.name));
         if (unlogged.length === 0) return "Ya registraste todas las comidas del plan hoy. 👏";
         const next = unlogged[0];
-        return `Te toca: **${next.name}** (${next.calories} kcal · $${next.cost_mxn} MXN)\n${next.recipe ?? ""}`;
+        const costLabel = next.cost_mxn != null ? `$${next.cost_mxn} MXN` : "precio pendiente";
+        return `Te toca: **${next.name}** (${next.calories} kcal · ${costLabel})\n${next.recipe ?? ""}`;
       }
 
       if (q.includes("macro") || q.includes("calor") || q.includes("proteína") || q.includes("llevo")) {

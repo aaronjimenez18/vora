@@ -24,8 +24,9 @@ function WeightChart({ entries }: { entries: ProgressEntry[] }) {
   const pad = 10;
   const min = Math.min(...weights.map((w) => w.weight)) - 1;
   const max = Math.max(...weights.map((w) => w.weight)) + 1;
+  const range = max - min || 1;
   const x = (i: number) => pad + (i / (weights.length - 1)) * (W - pad * 2);
-  const y = (w: number) => H - pad - ((w - min) / (max - min)) * (H - pad * 2);
+  const y = (w: number) => H - pad - ((w - min) / range) * (H - pad * 2);
 
   const points = weights.map((w, i) => `${x(i)},${y(w.weight)}`).join(" ");
   const first = weights[0];

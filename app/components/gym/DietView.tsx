@@ -118,28 +118,28 @@ export default function DietView() {
         }
       />
 
-      <div className="glass-floating p-5 flex items-center justify-between">
-        <div>
+      <div className="glass-floating p-4 sm:p-5 flex items-center justify-between gap-3">
+        <div className="min-w-0">
           <span className="label-caps block mb-1">gasto hoy</span>
-          <span className="font-mono-num text-xl text-[#f4f4f0]">
+          <span className="font-mono-num text-lg sm:text-xl text-[#f4f4f0] block truncate">
             ${Math.round(spentToday * 100) / 100}
           </span>
         </div>
-        <div className="text-right">
+        <div className="text-right min-w-0">
           <span className="label-caps block mb-1">presupuesto diario</span>
-          <span className="font-mono-num text-xl text-[#a1a1aa]">
+          <span className="font-mono-num text-lg sm:text-xl text-[#a1a1aa] block truncate">
             ${dailyBudget ? Math.round(dailyBudget * 100) / 100 : "—"}
           </span>
         </div>
       </div>
 
-      <div className="glass-floating p-5 flex items-center justify-between">
+      <div className="glass-floating p-3 sm:p-5 flex items-center justify-between gap-1 sm:gap-2 overflow-x-auto">
         {(["calories", "protein_g", "carbs_g", "fat_g", "fiber_g"] as const).map((k) => (
-          <div key={k} className="text-center">
-            <span className="font-mono-num text-sm text-[#f4f4f0]">
+          <div key={k} className="text-center flex-1 min-w-[52px]">
+            <span className="font-mono-num text-xs sm:text-sm text-[#f4f4f0] block truncate">
               {k === "fiber_g" && (plan.fiber_g === null || plan.fiber_g === undefined) ? "—" : plan[k]}
             </span>
-            <span className="label-caps block mt-1">
+            <span className="label-caps block mt-1 !text-[9px] sm:!text-[10px]">
               {k === "calories" ? "kcal" : k === "fiber_g" ? "fibra" : k.replace("_g", "")}
             </span>
           </div>
@@ -147,7 +147,7 @@ export default function DietView() {
       </div>
 
       {pricesUnknown && (
-        <div className="rounded-2xl border border-[#fbbf24]/25 bg-[#fbbf24]/[0.06] p-5">
+        <div className="rounded-2xl border border-[#fbbf24]/25 bg-[#fbbf24]/[0.06] p-4 sm:p-5">
           <span className="label-caps text-[#fbbf24] block mb-2">precios por confirmar</span>
           <p className="text-xs text-[#a1a1aa]">
             Los precios no son constantes: se necesitan registros fechados por tienda, mercado y
@@ -166,7 +166,7 @@ export default function DietView() {
       )}
 
       {bands && !pricesUnknown && (
-        <div className="glass-floating p-5 flex flex-col gap-3">
+        <div className="glass-floating p-4 sm:p-5 flex flex-col gap-3">
           <SectionHeader kicker="presupuesto" title="reparto sugerido por semana" />
           {(
             [
@@ -176,9 +176,9 @@ export default function DietView() {
               ["Grasas y varios", bands.fats_and_misc],
             ] as const
           ).map(([label, [min, max]]) => (
-            <div key={label} className="flex items-center justify-between">
-              <span className="text-xs text-[#a1a1aa]">{label}</span>
-              <span className="font-mono-num text-xs text-[#f4f4f0]">
+            <div key={label} className="flex items-center justify-between gap-2">
+              <span className="text-xs text-[#a1a1aa] truncate">{label}</span>
+              <span className="font-mono-num text-xs text-[#f4f4f0] shrink-0">
                 ${min}–${max}
               </span>
             </div>
@@ -194,17 +194,17 @@ export default function DietView() {
               (m) => m.custom_name === meal.name && m.meal_type === meal.meal_type
             );
             return (
-              <div key={meal.id} className="glass-floating p-5">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
+              <div key={meal.id} className="glass-floating p-4 sm:p-5">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-3">
+                  <div className="min-w-0 flex-1">
                     <span className="label-caps block mb-1">
                       {MEAL_LABELS[meal.meal_type ?? "snack"]}
                     </span>
-                    <span className="text-sm text-[#f4f4f0] font-medium">{meal.name}</span>
-                    <span className="block text-[11px] text-[#71717a] mt-1">{meal.recipe}</span>
+                    <span className="text-sm text-[#f4f4f0] font-medium block truncate">{meal.name}</span>
+                    <span className="block text-[11px] text-[#71717a] mt-1 break-words">{meal.recipe}</span>
                   </div>
-                  <div className="text-right shrink-0">
-                    <span className="font-mono-num text-sm text-[#f4f4f0]">
+                  <div className="text-left sm:text-right shrink-0 mt-1 sm:mt-0">
+                    <span className="font-mono-num text-sm text-[#f4f4f0] block">
                       {meal.calories} kcal
                     </span>
                     <span className="block font-mono-num text-[10px] text-[#a1a1aa]">
@@ -264,10 +264,10 @@ export default function DietView() {
         ) : (
           <div className="glass-floating divide-y divide-white/[0.06]">
             {logs.map((m) => (
-              <div key={m.id} className="flex items-center justify-between gap-3 py-3 px-5">
-                <div className="min-w-0">
+              <div key={m.id} className="flex items-center justify-between gap-3 py-3 px-4 sm:px-5">
+                <div className="min-w-0 flex-1">
                   <span className="text-xs text-[#f4f4f0] truncate block">{m.custom_name}</span>
-                  <span className="font-mono-num text-[10px] text-[#52525b]">
+                  <span className="font-mono-num text-[10px] text-[#52525b] block truncate mt-0.5">
                     {m.calories} kcal
                     {m.fiber_g ? ` · ${m.fiber_g} g fibra` : ""}
                     {m.cost_mxn ? ` · $${m.cost_mxn}` : ""}
@@ -275,7 +275,7 @@ export default function DietView() {
                 </div>
                 <button
                   onClick={() => handleDelete(m.id)}
-                  className="text-[#52525b] hover:text-[#f87171] transition-colors"
+                  className="text-[#52525b] hover:text-[#f87171] transition-colors shrink-0 p-1"
                 >
                   <span className="material-symbols-outlined text-[16px]">close</span>
                 </button>
@@ -297,13 +297,6 @@ export default function DietView() {
       )}
     </div>
   );
-}
-
-interface PriceRow {
-  price_mxn: number;
-  unit: string;
-  package_size?: number;
-  observed_at?: string;
 }
 
 function FoodPicker({
@@ -351,12 +344,11 @@ function FoodPicker({
     };
   }, []);
 
-  const blocked = (f: Food) =>
-    (f.allergens ?? []).some((a) => allergies.includes(a));
-
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const list = foods.filter((f) => !blocked(f));
+    const isBlocked = (f: Food) =>
+      (f.allergens ?? []).some((a) => allergies.includes(a));
+    const list = foods.filter((f) => !isBlocked(f));
     if (!q) return list;
     return list.filter((f) => f.name.toLowerCase().includes(q));
   }, [foods, query, allergies]);
@@ -384,21 +376,21 @@ function FoodPicker({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/80 backdrop-blur-md animate-fade-in-up"
+      className="fixed inset-0 z-[60] flex items-center justify-center p-3 sm:p-6 pb-20 sm:pb-6 bg-black/80 backdrop-blur-md animate-fade-in-up"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-xl glass-modal-panel p-8 flex flex-col gap-6 max-h-[85vh] overflow-hidden"
+        className="w-full max-w-xl glass-modal-panel p-4 sm:p-6 flex flex-col gap-3 sm:gap-4 max-h-[82vh] sm:max-h-[85vh] overflow-hidden rounded-2xl sm:rounded-3xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between">
-          <div>
-            <span className="label-caps block mb-1">Registro de Alimentos</span>
-            <h3 className="font-serif-title text-2xl text-[#f4f4f0]">Buscar en el catálogo</h3>
+        <div className="flex items-center justify-between shrink-0">
+          <div className="min-w-0 flex-1">
+            <span className="label-caps block mb-0.5">Registro de Alimentos</span>
+            <h3 className="font-serif-title text-xl sm:text-2xl text-[#f4f4f0] truncate">Buscar en el catálogo</h3>
           </div>
           <button
             onClick={onClose}
-            className="w-9 h-9 rounded-full bg-white/[0.04] border border-white/[0.08] flex items-center justify-center text-[#71717a] hover:text-[#f4f4f0]"
+            className="w-9 h-9 rounded-full bg-white/[0.04] border border-white/[0.08] flex items-center justify-center text-[#71717a] hover:text-[#f4f4f0] shrink-0 ml-2"
           >
             <span className="material-symbols-outlined text-[18px]">close</span>
           </button>
@@ -410,11 +402,11 @@ function FoodPicker({
           placeholder="Escribe un ingrediente…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          className="input-pill w-full"
+          className="input-pill w-full text-sm py-2.5 px-4 shrink-0"
         />
 
         {allergies.length > 0 && (
-          <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-3">
+          <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-2.5 shrink-0">
             <span className="label-caps block mb-1">alérgenos bloqueados</span>
             <div className="flex flex-wrap gap-1.5">
               {allergies.map((a) => (
@@ -426,7 +418,7 @@ function FoodPicker({
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto flex flex-col gap-2 pr-1 min-h-[200px]">
+        <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-2 pr-1">
           {results.map((food) => {
             const isSel = selected?.id === food.id;
             const p100 = prices[food.id] ?? null;
@@ -434,23 +426,23 @@ function FoodPicker({
               <button
                 key={food.id}
                 onClick={() => setSelected(isSel ? null : food)}
-                className={`flex items-center justify-between p-4 rounded-2xl text-left transition-all ${
+                className={`flex items-center justify-between p-3 sm:p-4 rounded-2xl text-left transition-all gap-2 shrink-0 ${
                   isSel
                     ? "bg-[#a3e635]/15 border border-[#a3e635]/30 text-[#f4f4f0]"
                     : "bg-white/[0.02] border border-white/[0.06] hover:border-white/[0.12] text-[#f4f4f0]"
                 }`}
               >
-                <div className="min-w-0">
-                  <span className="text-sm font-medium block">{food.name}</span>
-                  <span className="text-[11px] text-[#71717a]">
+                <div className="min-w-0 flex-1">
+                  <span className="text-xs sm:text-sm font-medium block truncate">{food.name}</span>
+                  <span className="text-[10px] sm:text-[11px] text-[#71717a] block truncate mt-0.5">
                     P:{food.protein_g} · C:{food.carbs_g} · F:{food.fat_g}
                     {food.fiber_g ? ` · Fib:${food.fiber_g}` : ""} /100 g
                   </span>
                   {p100 !== null && (
-                    <span className="block text-[11px] text-[#a3e635]">≈ ${p100}/100 g</span>
+                    <span className="block text-[10px] sm:text-[11px] text-[#a3e635] mt-0.5">≈ ${p100}/100 g</span>
                   )}
                 </div>
-                <span className="font-mono-num text-sm text-[#a1a1aa] shrink-0">
+                <span className="font-mono-num text-xs sm:text-sm text-[#a1a1aa] shrink-0">
                   {food.calories} kcal
                 </span>
               </button>
@@ -462,13 +454,13 @@ function FoodPicker({
         </div>
 
         {selected && (
-          <div className="flex flex-col gap-4 pt-4 border-t border-white/[0.08]">
-            <div className="flex gap-2">
+          <div className="shrink-0 flex flex-col gap-3 sm:gap-4 pt-3 sm:pt-4 border-t border-white/[0.08] bg-[#0e0e11]">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2">
               {MEAL_ORDER.map((c) => (
                 <button
                   key={c}
                   onClick={() => setMealType(c)}
-                  className={`flex-1 py-2 rounded-full text-xs font-medium transition-all ${
+                  className={`py-2 px-2 rounded-full text-xs font-medium transition-all text-center truncate ${
                     mealType === c
                       ? "bg-[#a3e635] text-[#09090b] font-semibold"
                       : "bg-white/[0.04] text-[#71717a]"
@@ -479,25 +471,25 @@ function FoodPicker({
               ))}
             </div>
 
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-2 flex-1">
-                <span className="label-caps">gramos</span>
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <span className="label-caps shrink-0">gramos</span>
                 <input
                   type="number"
                   inputMode="numeric"
-                  className="input-pill flex-1"
+                  className="input-pill flex-1 min-w-0 text-sm py-2 px-4"
                   value={grams}
                   onChange={(e) => setGrams(e.target.value.replace(/[^0-9.]/g, ""))}
                 />
               </div>
-              <span className="font-mono-num text-sm text-[#a1a1aa] whitespace-nowrap">
+              <span className="font-mono-num text-xs sm:text-sm text-[#a1a1aa] text-center sm:text-right shrink-0">
                 {selectedGrams > 0
                   ? `${Math.round((selected.calories ?? 0) * k)} kcal`
                   : "0 kcal"}
               </span>
             </div>
 
-            <button onClick={add} className="btn-pill-primary w-full py-3">
+            <button onClick={add} className="btn-pill-primary w-full py-2.5 sm:py-3 text-xs sm:text-sm">
               Registrar {selected.name}
             </button>
           </div>

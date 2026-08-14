@@ -52,7 +52,7 @@ function VoraApp() {
 
   return (
     <div className="min-h-screen flex flex-col bg-[#09090b]">
-      <main className="flex-1 px-4 pt-6 max-w-xl mx-auto w-full">{renderView()}</main>
+      <main className="flex-1 px-3 sm:px-4 pt-4 sm:pt-6 max-w-xl mx-auto w-full overflow-x-hidden">{renderView()}</main>
       <BottomNav />
     </div>
   );
