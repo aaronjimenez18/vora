@@ -1,0 +1,66 @@
+{
+  "version":"1.0",
+  "running": {
+    "intensity_scales": {
+      "rpe_1_10": {
+        "easy": {"range":"2-4","description":"Conversación cómoda; debe permitir controlar la respiración."},
+        "steady": {"range":"5-6","description":"Esfuerzo moderado; conversación limitada."},
+        "tempo": {"range":"7-8","description":"Fuerte y sostenible durante un bloque; no es sprint."},
+        "interval": {"range":"8-9","description":"Intenso y repetible con recuperación planificada."},
+        "sprint": {"range":"9-10","description":"Esfuerzo muy breve; la calidad y la seguridad tienen prioridad."}
+      },
+      "talk_test":"Usar la capacidad de hablar como señal adicional y no depender únicamente de un ritmo fijo, especialmente al cambiar de terreno, clima o fatiga.",
+      "heart_rate":"Las zonas de frecuencia cardiaca deben individualizarse con una prueba o estimación razonable y verificarse junto con RPE y síntomas; no deben sustituir la supervisión clínica cuando exista enfermedad conocida."
+    },
+    "session_types": [
+      {"id":"run_easy","name_es":"Rodaje fácil","goal":"base aeróbica y recuperación","intensity":"RPE 2-4","work":"20-90 min","progression":"Aumentar tiempo total gradualmente antes de añadir intensidad.","recovery":"24-48 h según volumen y nivel"},
+      {"id":"run_long","name_es":"Tirada larga","goal":"tolerancia a duración y economía","intensity":"RPE 2-5","work":"40-150 min","progression":"Añadir pocos minutos manteniendo ritmo fácil; descargar cuando la fatiga se acumule.","recovery":"48-72 h"},
+      {"id":"run_tempo","name_es":"Tempo o umbral","goal":"sostener intensidad alta controlada","intensity":"RPE 7-8","work":"10-40 min acumulados en bloques","progression":"Aumentar tiempo en zona antes de aumentar el ritmo.","recovery":"48 h o más"},
+      {"id":"run_intervals","name_es":"Intervalos","goal":"velocidad aeróbica y tolerancia al esfuerzo","intensity":"RPE 8-9","work":"4-12 repeticiones de 30 s a 5 min","progression":"Aumentar repeticiones o tiempo total, no todas las variables a la vez.","recovery":"48-72 h"},
+      {"id":"run_hills","name_es":"Cuestas","goal":"fuerza específica y técnica","intensity":"RPE 7-9","work":"6-12 repeticiones de 10-60 s","progression":"Primero calidad y recuperación completa; luego volumen.","recovery":"48-72 h"},
+      {"id":"run_strides","name_es":"Progresivos","goal":"técnica y velocidad sin fatiga alta","intensity":"RPE 7-9","work":"4-8 repeticiones de 15-30 s","progression":"Mantener pocas repeticiones y alta calidad.","recovery":"24-48 h"},
+      {"id":"run_walk_run","name_es":"Caminar-correr","goal":"introducción progresiva al impacto","intensity":"RPE 2-5","work":"10-40 min alternando bloques","progression":"Aumentar gradualmente el tiempo corriendo si no hay dolor ni síntomas persistentes.","recovery":"24-48 h"}
+    ],
+    "progression_rules": {
+      "beginner":"Aumentar una sola variable por vez y priorizar frecuencia tolerable, técnica y recuperación. No asumir que una regla fija de porcentaje es segura para todas las personas.",
+      "load_monitoring":"Registrar duración, distancia, RPE, terreno, sueño, dolor y sensación de recuperación.",
+      "pain":"Dolor agudo, alteración de la zancada, dolor que empeora o síntomas neurológicos requieren detener, modificar y valorar profesionalmente.",
+      "deload":"Reducir volumen o intensidad cuando el rendimiento caiga de forma persistente o aparezcan señales de fatiga acumulada."
+    }
+  },
+  "nutrition": {
+    "scope":"Información general para adultos sanos físicamente activos; no sustituye valoración de dietista-nutricionista o médico.",
+    "energy": {
+      "principle":"Ajustar energía al objetivo, actividad, peso, composición corporal, hambre, rendimiento y evolución real; evitar prescribir una cifra rígida sin datos suficientes.",
+      "low_energy_availability":"Vigilar fatiga persistente, peor recuperación, alteraciones del ciclo menstrual, disminución de libido, lesiones recurrentes, frío, cambios de humor o caída del rendimiento; derivar cuando proceda.",
+      "weight_change":"Usar cambios graduales y reevaluar cada 2-4 semanas, evitando reducciones agresivas que comprometan rendimiento y salud."
+    },
+    "macronutrients": {
+      "protein":"Distribuir proteína de calidad en varias comidas y ajustar la cantidad al tamaño corporal, objetivo, edad, dieta y tolerancia. La base de evidencia de ISSN respalda una ingesta suficiente para favorecer síntesis y recuperación muscular [N1].",
+      "carbohydrate":"Aumentar disponibilidad de carbohidratos cuando el volumen o la intensidad de running sean altos; individualizar según duración, tolerancia digestiva y objetivo [N2].",
+      "fat":"Mantener una ingesta suficiente para salud, saciedad y absorción de vitaminas; evitar reducirla excesivamente durante periodos de entrenamiento intenso.",
+      "fiber":"Priorizar alimentos ricos en fibra, pero ajustar la cantidad y el momento antes de sesiones largas si produce molestias gastrointestinales."
+    },
+    "timing": {
+      "before_training":"Elegir una comida o tentempié tolerable con carbohidratos y, según el contexto, proteína; reducir grasa y fibra si se entrena muy cerca de comer.",
+      "during_training":"Para sesiones cortas normalmente basta con agua según sed y contexto; para sesiones prolongadas o intensas puede ser útil planificar carbohidratos y líquidos de forma individualizada [N2] [N3].",
+      "after_training":"Consumir una comida normal con proteína, carbohidratos y líquidos; no es obligatorio utilizar suplementos si la dieta cubre las necesidades."
+    },
+    "hydration": {
+      "principle":"La hidratación depende de sudoración, clima, duración, ropa, ritmo y disponibilidad de líquidos.",
+      "monitoring":"Registrar peso pre y post cuando sea apropiado, color de orina como señal imperfecta, sed, síntomas y rendimiento.",
+      "safety":"Evitar beber cantidades excesivas de agua de forma forzada; en esfuerzos prolongados y con mucha sudoración puede ser relevante el sodio, individualizado según contexto [N3]."
+    },
+    "supplements": {
+      "policy":"No recomendar suplementos como base. Evaluar evidencia, legalidad, riesgo de contaminación, interacciones y necesidad individual.",
+      "professional_review":"Derivar a un profesional para anemia, déficit confirmado, enfermedad renal, embarazo, trastornos de la conducta alimentaria, medicación o síntomas persistentes."
+    },
+    "food_database_fields": ["food_id","name_es","brand_or_generic","serving_size","grams","energy_kcal","protein_g","carbohydrate_g","fat_g","fiber_g","sodium_mg","allergens","diet_tags","source","source_date","confidence_level"]
+  },
+  "sources": [
+    {"id":"N1","title":"ISSN Position Stand: protein and exercise","url":"https://pubmed.ncbi.nlm.nih.gov/28642676/"},
+    {"id":"N2","title":"ISSN Position Stand: nutrient timing","url":"https://pubmed.ncbi.nlm.nih.gov/28919842/"},
+    {"id":"N3","title":"IOC consensus statement on sports nutrition","url":"https://www.tandfonline.com/doi/full/10.1080/02640414.2011.619349"},
+    {"id":"N4","title":"ACSM distance running form tips","url":"https://acsm.org/distance-running-form-tips/"}
+  ]
+}

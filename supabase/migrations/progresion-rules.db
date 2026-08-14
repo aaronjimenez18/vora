@@ -1,0 +1,57 @@
+{
+  "version": "1.0",
+  "principles": {
+    "rir_definition": "Repeticiones en reserva estimadas antes del fallo técnico o muscular momentáneo.",
+    "technical_failure": "La serie termina cuando la persona ya no puede completar la repetición con la técnica, rango o velocidad mínimos definidos.",
+    "absolute_failure": "La serie termina cuando no puede completar otra repetición, incluso con técnica aceptable.",
+    "default_priority": "Primero calidad técnica y tolerancia; después repeticiones; finalmente carga o dificultad."
+  },
+  "rir_by_level": [
+    {"level":"beginner","free_compound_min":3,"free_compound_max":4,"machine_min":2,"machine_max":4,"isolation_min":2,"isolation_max":4,"power_rule":"detener cuando baje claramente la velocidad o empeore el aterrizaje"},
+    {"level":"intermediate","free_compound_min":2,"free_compound_max":3,"machine_min":1,"machine_max":3,"isolation_min":1,"isolation_max":3,"power_rule":"dejar margen amplio y priorizar velocidad"},
+    {"level":"advanced","free_compound_min":1,"free_compound_max":3,"machine_min":0,"machine_max":2,"isolation_min":0,"isolation_max":2,"power_rule":"no llegar al fallo; detener por pérdida de potencia"}
+  ],
+  "double_progression": {
+    "steps": [
+      "Elegir una carga que permita alcanzar el mínimo del rango con el RIR objetivo.",
+      "Mantener la carga hasta alcanzar el extremo alto del rango en todas las series.",
+      "Comprobar que la técnica y el rango se mantienen y que el RIR real no está por debajo del objetivo.",
+      "Aumentar la carga entre 2 y 5 por ciento en ejercicios multiarticulares grandes y entre 1 y 2.5 por ciento en aislamientos.",
+      "Volver al extremo bajo o medio del rango y repetir el ciclo."
+    ],
+    "do_not_progress_if": ["dolor agudo", "pérdida de rango", "fallo técnico temprano", "fatiga inusual", "asimetría creciente", "RIR real inferior al objetivo en la mayoría de series"]
+  },
+  "load_adjustment": {
+    "rir_too_low": "Si el RIR real es al menos 2 repeticiones inferior al objetivo, reducir la carga entre 2.5 y 10 por ciento o quitar una serie.",
+    "rir_too_high": "Si el RIR real es al menos 2 repeticiones superior al objetivo y se alcanza el extremo alto del rango, aumentar carga entre 2 y 5 por ciento.",
+    "pain_or_symptoms": "No usar el RIR para justificar dolor. Cambiar rango, agarre, carga, variante o detener la sesión según el síntoma.",
+    "beginner_uncertainty": "Si el usuario no estima bien el RIR, usar RPE, velocidad subjetiva y margen conservador durante las primeras semanas."
+  },
+  "weekly_volume": {
+    "starting_point": "Comenzar con el mínimo volumen que permita progresar y recuperarse.",
+    "increase_rule": "Añadir aproximadamente 1 a 3 series semanales por grupo muscular solo si el rendimiento, sueño, apetito y molestias se mantienen aceptables.",
+    "reduce_rule": "Reducir entre 20 y 40 por ciento las series si existe caída persistente del rendimiento, dolor creciente o fatiga acumulada.",
+    "frequency": "Distribuir el volumen en al menos dos sesiones cuando una sola sesión produzca series de baja calidad o fatiga excesiva.",
+    "volume_measurement": "Registrar series directas y series indirectas con una etiqueta de contribución baja, media o alta para evitar contar todas de forma idéntica."
+  },
+  "deload": {
+    "trigger_conditions": ["dos o más sesiones consecutivas con rendimiento claramente inferior", "dolor o molestias crecientes", "fatiga persistente", "sueño alterado", "pérdida de motivación junto con bajo rendimiento"],
+    "default_action": "Reducir el volumen entre 30 y 50 por ciento durante aproximadamente una semana y mantener cargas moderadas sin acercarse al fallo.",
+    "not_automatic": "No imponer una descarga únicamente por calendario si el usuario progresa, se recupera y no presenta señales de fatiga."
+  },
+  "failure_policy": {
+    "allowed_occasional": ["máquinas estables", "poleas", "aislamientos", "ejercicios con abandono seguro de la carga"],
+    "avoid_absolute_failure": ["sentadillas libres pesadas", "peso muerto y bisagras pesadas", "presses sin seguros", "fondos sin asistencia suficiente", "ejercicios explosivos", "movimientos complejos con técnica deteriorada"],
+    "technical_failure_rule": "Detener siempre que la ejecución deje de cumplir el rango, la trayectoria, la velocidad o la posición articular definidas."
+  },
+  "pain_modification": {
+    "green": "Sin dolor o molestia leve estable: continuar vigilando técnica y respuesta posterior.",
+    "yellow": "Molestia que cambia la técnica o aumenta serie a serie: reducir carga, rango, volumen o cambiar variante.",
+    "red": "Dolor agudo, irradiado, pérdida de fuerza súbita, inestabilidad o síntomas neurológicos: detener y recomendar valoración profesional."
+  },
+  "power_and_conditioning": {
+    "power": "Usar intención máxima, pocas repeticiones, descansos suficientes y detener por caída observable de velocidad o calidad.",
+    "conditioning": "Prescribir por tiempo, distancia, ritmo, frecuencia cardiaca o RPE; no aplicar RIR muscular como criterio principal.",
+    "mobility": "Prescribir por control y tolerancia; no entrenar al fallo ni forzar dolor."
+  }
+}

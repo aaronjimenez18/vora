@@ -1,0 +1,58 @@
+{
+  "version":"1.0",
+  "disclaimer":"Soy una herramienta de apoyo y no sustituyo la valoración de un profesional sanitario. Antes de calcular o recomendar, la app debe identificar situaciones que requieren derivación.",
+  "steps":[
+    {
+      "id":"goal",
+      "question":"¿Cuál es tu objetivo principal?",
+      "options":[
+        {"id":"fat_loss","label_es":"Perder grasa","default_energy_adjustment":"-10% a -20% respecto al mantenimiento, individualizar por respuesta"},
+        {"id":"muscle_gain","label_es":"Ganar músculo","default_energy_adjustment":"+5% a +15% respecto al mantenimiento, individualizar por rendimiento y cambios de peso"},
+        {"id":"maintenance","label_es":"Mantener peso y composición","default_energy_adjustment":"aproximadamente mantenimiento, ajustar por tendencia real"}
+      ],
+      "follow_up":"¿Quieres priorizar también rendimiento en gimnasio o running?"
+    },
+    {
+      "id":"anthropometrics",
+      "question":"Datos corporales",
+      "fields":["age_years","sex_for_equation","height_cm","body_mass_kg","optional_body_fat_percent","waist_cm_optional"],
+      "validation":"Edad, talla y peso deben estar en rangos plausibles; no permitir valores negativos ni silenciosamente corregir datos."
+    },
+    {
+      "id":"activity",
+      "question":"Actividad y entrenamiento",
+      "fields":["occupation_activity","steps_per_day_optional","strength_days_per_week","running_days_per_week","average_session_minutes","training_intensity","cardio_minutes_per_week"],
+      "options":{"occupation_activity":["sedentary","light","moderate","high","very_high"],"training_intensity":["low","moderate","high"]},
+      "note":"El factor de actividad es una estimación inicial; debe actualizarse con el peso, hambre, rendimiento y adherencia observados."
+    },
+    {
+      "id":"budget",
+      "question":"¿Cuál es tu presupuesto para comida?",
+      "fields":["budget_amount_mxn","budget_period","household_size","shared_foods","shopping_frequency","store_preferences"],
+      "options":{"budget_period":["per_day","per_week","per_month"],"shopping_frequency":["daily","weekly","biweekly","monthly"]},
+      "required":true,
+      "note":"La app debe preguntar si el presupuesto cubre solo al usuario o a todo el hogar y si incluye suplementos, bebidas y comida fuera de casa."
+    },
+    {
+      "id":"preferences",
+      "question":"Preferencias y restricciones",
+      "fields":["diet_style","allergies","intolerances","religious_restrictions","foods_disliked","foods_liked","cooking_time_minutes","kitchen_equipment","meals_per_day","snacks_per_day"],
+      "options":{"diet_style":["omnivore","vegetarian","vegan","pescatarian","other"]},
+      "safety":"Alergias deben bloquear alimentos y sustituciones de forma estricta; no tratarlas como una simple preferencia."
+    },
+    {
+      "id":"health_screen",
+      "question":"Filtro de seguridad",
+      "fields":["pregnancy_or_breastfeeding","eating_disorder_history","diabetes_or_glucose_medication","kidney_disease","liver_disease","gastrointestinal_disease","food_allergy","current_medications","clinician_diet_prescribed","under_18"],
+      "action":"Si aparece una bandera roja, no generar una dieta automática restrictiva; mostrar aviso y recomendar valoración profesional."
+    },
+    {
+      "id":"output_preferences",
+      "question":"¿Cómo quieres recibir el plan?",
+      "fields":["daily_menu_or_meal_templates","grams_or_household_portions","include_shopping_list","include_batch_cooking","include_low_cost_substitutions","include_macros_per_meal","include_micronutrient_coverage"]
+    }
+  ],
+  "calculation_inputs":["goal","age_years","sex_for_equation","height_cm","body_mass_kg","activity_factor","training_load","budget_amount_mxn","budget_period","diet_style","allergies","health_screen"],
+  "minimum_required_before_calculation":["goal","age_years","sex_for_equation","height_cm","body_mass_kg","occupation_activity","budget_amount_mxn","budget_period","allergies","health_screen"],
+  "do_not_collect_as_required":"No exigir porcentaje de grasa, pasos o frecuencia cardiaca si el usuario no los conoce; tratarlos como datos opcionales con menor precisión."
+}

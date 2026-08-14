@@ -1,0 +1,79 @@
+{
+  "version":"1.0",
+  "disclaimer":"Estimaciones para adultos sanos. No usar para diagnosticar ni para sustituir una dieta clínica. El sistema debe derivar cuando existan banderas de seguridad.",
+  "energy_equations": {
+    "preferred":"revised_harris_benedict_1984",
+    "revised_harris_benedict": {
+      "male":"BMR = 88.362 + (13.397 × weight_kg) + (4.799 × height_cm) − (5.677 × age_years)",
+      "female":"BMR = 447.593 + (9.247 × weight_kg) + (3.098 × height_cm) − (4.330 × age_years)",
+      "units":"kcal/day",
+      "note":"Sex for equation is used only as a biological input for this predictive equation; allow the user to select the equation input that best matches the clinical context and provide a manual override for qualified professionals."
+    },
+    "original_harris_benedict": {
+      "male":"BMR = 66.473 + (13.752 × weight_kg) + (5.003 × height_cm) − (6.755 × age_years)",
+      "female":"BMR = 655.096 + (9.563 × weight_kg) + (1.850 × height_cm) − (4.676 × age_years)",
+      "use":"historical comparison only; do not mix formulas inside the same plan"
+    },
+    "activity_factors": {
+      "sedentary":1.2,
+      "light":1.375,
+      "moderate":1.55,
+      "high":1.725,
+      "very_high":1.9
+    },
+    "steps": [
+      "Calcular BMR con Harris-Benedict revisada.",
+      "Calcular TDEE_inicial = BMR × activity_factor.",
+      "Comparar el factor elegido con sesiones, pasos, ocupación y fatiga para evitar doble conteo del ejercicio.",
+      "Aplicar el ajuste del objetivo sobre TDEE, no sobre BMR.",
+      "Revisar el promedio de peso de 7 días y el rendimiento después de 2 a 4 semanas.",
+      "Ajustar en pequeños incrementos si la tendencia real no coincide con el objetivo y la adherencia es razonable."
+    ]
+  },
+  "goal_adjustments": {
+    "fat_loss": {"starting_range_percent":[-20,-10],"preferred_start":"-10% a -15%","rate_rule":"priorizar una pérdida gradual; no imponer una velocidad fija sin contexto"},
+    "maintenance": {"starting_range_percent":[-5,5],"preferred_start":"0%","rate_rule":"ajustar para estabilizar la media de peso y rendimiento"},
+    "muscle_gain": {"starting_range_percent":[5,15],"preferred_start":"+5% a +10%","rate_rule":"buscar ganancia gradual y limitar aumentos rápidos de grasa corporal"}
+  },
+  "macros": {
+    "protein": {
+      "default_g_per_kg":[1.6,2.2],
+      "fat_loss_option":[1.8,2.4],
+      "note":"Seleccionar el extremo según masa magra, edad, experiencia, déficit, preferencia y tolerancia; no tratar el intervalo como una obligación clínica."
+    },
+    "fat": {
+      "default_percent_of_energy":[20,35],
+      "minimum_policy":"No reducir crónicamente por debajo de una ingesta compatible con salud, saciedad y función hormonal; derivar si existen necesidades clínicas."
+    },
+    "carbohydrate": {
+      "calculation":"remaining_calories_after_protein_and_fat",
+      "training_priority":"asignar más carbohidratos alrededor de sesiones de running o fuerza de mayor volumen cuando mejore rendimiento y tolerancia digestiva"
+    },
+    "energy_factors":{"protein_kcal_per_g":4,"carbohydrate_kcal_per_g":4,"fat_kcal_per_g":9}
+  },
+  "micronutrients": {
+    "reference_system":"DRI: RDA, AI, EAR y UL según edad, sexo y etapa vital",
+    "default_tracking":["calcium","iron","magnesium","potassium","sodium","zinc","vitamin_a","vitamin_c","vitamin_d","vitamin_e","vitamin_k","thiamin","riboflavin","niacin","vitamin_b6","folate","vitamin_b12","iodine","fiber","water"],
+    "coverage_rule":"Mostrar cobertura frente a RDA o AI; no convertir una estimación de consumo de un día en diagnóstico de deficiencia.",
+    "upper_limit_rule":"No recomendar suplementos para alcanzar un micronutriente cuando pueda superarse el UL; derivar para suplementación clínica."
+  },
+  "budget_engine": {
+    "currency":"MXN",
+    "budget_scope_required":["amount","period","household_size","includes_supplements","includes_eating_out"],
+    "priority_order":["meet_energy_target","meet_protein_target","meet_fiber_target","maximize_micronutrient_coverage","respect_preferences_and_allergies","minimize_cost"],
+    "price_record_required":["food_id","price_mxn","unit","package_size","store_or_market","city_or_region","observed_at","source","price_type","confidence"],
+    "price_types":["retail","wholesale","promotional","user_entered","estimated"],
+    "update_policy":"Los precios no son constantes. Actualizar por ciudad, tienda, presentación y fecha; si no hay dato reciente, mostrar rango y fecha en lugar de fingir precisión.",
+    "budget_allocation_default":{"proteins_percent":[25,40],"staples_percent":[20,35],"produce_percent":[20,35],"fats_and_misc_percent":[5,20]},
+    "low_budget_strategy":["usar legumbres, huevo, soya texturizada, avena, arroz, tortillas, papa y verduras de temporada","comprar presentaciones grandes cuando el precio por kilogramo sea menor","usar pollo entero o cortes económicos cuando sean compatibles con preferencias","calcular costo por gramo de proteína y costo por 1000 kcal, no solo precio por paquete","mantener variedad mínima de alimentos y no eliminar frutas y verduras por perseguir macros"],
+    "optimization":"Resolver una selección semanal con restricciones de presupuesto, energía, macros, alergias y porciones; devolver alternativas equivalentes y explicar qué variable cambia."
+  },
+  "safety_flags":["under_18","pregnancy_or_breastfeeding","eating_disorder_history","diabetes_medication","kidney_disease","liver_disease","gastrointestinal_disease","clinician_prescribed_diet","severe_food_allergy","unintentional_weight_loss","rapid_weight_change"],
+  "sources":[
+    {"id":"E1","title":"Revised Harris–Benedict Equation: New Human Resting Metabolic Rate Equation","url":"https://pmc.ncbi.nlm.nih.gov/articles/PMC9967803/"},
+    {"id":"E2","title":"NIH ODS Nutrient Recommendations and Databases","url":"https://ods.od.nih.gov/HealthInformation/nutrientrecommendations.aspx"},
+    {"id":"E3","title":"USDA FoodData Central","url":"https://fdc.nal.usda.gov/"},
+    {"id":"E4","title":"SNIIM Secretaría de Economía México","url":"https://www.economia-sniim.gob.mx/nuevo/"},
+    {"id":"E5","title":"ISSN Position Stand: Protein and Exercise","url":"https://pubmed.ncbi.nlm.nih.gov/28642676/"}
+  ]
+}

@@ -1,0 +1,913 @@
+-- ─────────────────────────────────────────────────────────────
+-- VORA — Motor de RIR y Progresión
+-- Generado por scripts/import-exercises.mjs — no editar a mano.
+-- Fuentes: ejercicios.db (50 ejercicios) + progresion-rules.db
+-- Aditivo e idempotente: funciona con o sin 0003 aplicada.
+-- ─────────────────────────────────────────────────────────────
+
+-- Variables del motor RIR por serie
+alter table public.exercise_logs add column if not exists pain text;
+alter table public.exercise_logs add column if not exists velocity text;
+alter table public.exercise_logs add column if not exists technique boolean;
+alter table public.exercise_logs add column if not exists technical_failure boolean;
+
+-- Peso objetivo sugerido para la próxima sesión
+alter table public.planned_exercises add column if not exists target_weight numeric;
+
+-- Investigación por ejercicio (RIR por nivel, reglas, fallo, regresión…)
+alter table public.exercises add column if not exists meta jsonb;
+
+-- 1RM estimado (Epley) por ejercicio
+create table if not exists public.estimated_1rm (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  exercise_id uuid references public.exercises(id) on delete cascade,
+  e1rm numeric not null check (e1rm > 0),
+  method text not null default 'epley',
+  session_id uuid references public.workout_sessions(id) on delete set null,
+  date date not null default current_date,
+  created_at timestamptz not null default now()
+);
+alter table public.estimated_1rm enable row level security;
+drop policy if exists "own estimated_1rm" on public.estimated_1rm;
+create policy "own estimated_1rm" on public.estimated_1rm
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- Decisiones de progresión (recomendar + aplicar)
+create table if not exists public.progression_decisions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  exercise_id uuid references public.exercises(id) on delete set null,
+  workout_day_id uuid references public.workout_days(id) on delete set null,
+  session_id uuid references public.workout_sessions(id) on delete set null,
+  date date not null default current_date,
+  action text not null,
+  pct numeric,
+  from_weight numeric,
+  to_weight numeric,
+  to_reps int,
+  remove_set boolean not null default false,
+  rationale jsonb not null default '[]'::jsonb,
+  applied boolean not null default false,
+  created_at timestamptz not null default now()
+);
+alter table public.progression_decisions enable row level security;
+drop policy if exists "own progression_decisions" on public.progression_decisions;
+create policy "own progression_decisions" on public.progression_decisions
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- Ejercicios del research que no estaban en el catálogo
+insert into public.exercises (slug, name, primary_muscle, secondary_muscles, equipment, gear, family, unilateral_support, difficulty, movement_pattern, variation_group)
+values (
+  'incline-dumbbell-curl',
+    'Curl con mancuernas en banco inclinado',
+    'bíceps',
+    '{}',
+    'home_dumbbells',
+    'dumbbell',
+    'curl_biceps',
+    true,
+    'intermediate',
+    'pull',
+    'biceps_curl'
+)
+on conflict (slug) where slug is not null do nothing;
+
+insert into public.exercises (slug, name, primary_muscle, secondary_muscles, equipment, gear, family, unilateral_support, difficulty, movement_pattern, variation_group)
+values (
+  'cable-overhead-triceps-unilateral',
+    'Extensión de tríceps en polea (a un brazo)',
+    'tríceps',
+    '{}',
+    'gym',
+    'cable',
+    'triceps_extension',
+    true,
+    'intermediate',
+    'push',
+    'triceps_pressdown'
+)
+on conflict (slug) where slug is not null do nothing;
+
+insert into public.exercises (slug, name, primary_muscle, secondary_muscles, equipment, gear, family, unilateral_support, difficulty, movement_pattern, variation_group)
+values (
+  'front-squat',
+    'Sentadilla frontal',
+    'cuádriceps',
+    '{glúteos,erectores espinales}',
+    'gym',
+    'barbell',
+    'sentadilla',
+    false,
+    'intermediate',
+    'legs',
+    'squat'
+)
+on conflict (slug) where slug is not null do nothing;
+
+insert into public.exercises (slug, name, primary_muscle, secondary_muscles, equipment, gear, family, unilateral_support, difficulty, movement_pattern, variation_group)
+values (
+  'cable-glute-kickback',
+    'Patada de glúteo en polea',
+    'glúteos',
+    '{isquiotibiales}',
+    'gym',
+    'cable',
+    'gluteo_iso',
+    true,
+    'beginner',
+    'legs',
+    'glute_iso'
+)
+on conflict (slug) where slug is not null do nothing;
+
+insert into public.exercises (slug, name, primary_muscle, secondary_muscles, equipment, gear, family, unilateral_support, difficulty, movement_pattern, variation_group)
+values (
+  'hip-abduction-machine',
+    'Apertura de cadera en máquina',
+    'abductores',
+    '{}',
+    'gym',
+    'machine',
+    'abductores',
+    false,
+    'beginner',
+    'legs',
+    'hip_abduction'
+)
+on conflict (slug) where slug is not null do nothing;
+
+insert into public.exercises (slug, name, primary_muscle, secondary_muscles, equipment, gear, family, unilateral_support, difficulty, movement_pattern, variation_group)
+values (
+  'box-jump',
+    'Salto al cajón',
+    'cuádriceps',
+    '{glúteos,gemelos}',
+    'home_minimal',
+    'bodyweight',
+    'potencia',
+    false,
+    'beginner',
+    'power',
+    'power_legs'
+)
+on conflict (slug) where slug is not null do nothing;
+
+insert into public.exercises (slug, name, primary_muscle, secondary_muscles, equipment, gear, family, unilateral_support, difficulty, movement_pattern, variation_group)
+values (
+  'medball-chest-throw',
+    'Lanzamiento de balón medicinal',
+    'pecho',
+    '{hombros,tríceps}',
+    'home_minimal',
+    'bodyweight',
+    'potencia',
+    false,
+    'beginner',
+    'power',
+    'power_push'
+)
+on conflict (slug) where slug is not null do nothing;
+
+insert into public.exercises (slug, name, primary_muscle, secondary_muscles, equipment, gear, family, unilateral_support, difficulty, movement_pattern, variation_group)
+values (
+  'kettlebell-swing',
+    'Balanceo con kettlebell',
+    'glúteos',
+    '{isquiotibiales,erectores espinales,core}',
+    'home_dumbbells',
+    'dumbbell',
+    'peso_muerto',
+    false,
+    'intermediate',
+    'power',
+    'deadlift'
+)
+on conflict (slug) where slug is not null do nothing;
+
+insert into public.exercises (slug, name, primary_muscle, secondary_muscles, equipment, gear, family, unilateral_support, difficulty, movement_pattern, variation_group)
+values (
+  'dead-bug',
+    'Insecto muerto',
+    'abdomen',
+    '{core}',
+    'home_minimal',
+    'bodyweight',
+    'anti_extension',
+    false,
+    'beginner',
+    'core',
+    'anti_extension'
+)
+on conflict (slug) where slug is not null do nothing;
+
+insert into public.exercises (slug, name, primary_muscle, secondary_muscles, equipment, gear, family, unilateral_support, difficulty, movement_pattern, variation_group)
+values (
+  'sled-push',
+    'Empuje de trineo',
+    'cuádriceps',
+    '{glúteos,gemelos}',
+    'gym',
+    'bodyweight',
+    'potencia',
+    false,
+    'beginner',
+    'power',
+    'power_legs'
+)
+on conflict (slug) where slug is not null do nothing;
+
+-- Investigación por ejercicio (meta + info del coach)
+update public.exercises
+set meta = '{"id":"ex_incline_dumbbell_curl","name_es":"Curl inclinado con mancuernas","name_en":"Incline dumbbell curl","category":"fuerza","movement_pattern":"flexión de codo","primary_muscles":["bíceps braquial"],"secondary_muscles":["braquial","braquiorradial"],"equipment":["mancuernas","banco inclinado"],"skill_level":"intermedio","stability_demand":"moderada","closed_or_open_chain":"cadena abierta","unilateral":false,"axial_loading":false,"technical_complexity":"moderada","rom_range":"extensión de codo amplia pero sin dolor anterior de hombro","beginner_regression":"curl sentado o de pie con apoyo","advanced_progression":"unilateral, pausa o variación de ángulo","setup_and_execution":"Apoyar la espalda en un banco inclinado, dejar los brazos caer de forma cómoda y flexionar el codo sin adelantarlo.","key_cues":["hombros apoyados","codos quietos","descenso controlado","no forzar extensión"],"common_errors":["bajar demasiado sin tolerancia","elevar hombros","usar impulso","perder supinación"],"contraindications_or_cautions":"Reducir la inclinación o usar otra variante ante dolor anterior de hombro o tensión excesiva del tendón.","hypertrophy_reps":"8-25","strength_reps":"6-15","power_reps":"No aplica","default_rir_beginner":"4","default_rir_intermediate":"2-3","default_rir_advanced":"0-2","rest_seconds":"60-150","progression_rule":"Aumentar repeticiones antes de carga; mantener el estiramiento bajo control.","failure_policy":"RIR 0 ocasional, pero no si se pierde la posición del hombro en la zona alargada.","source_tags":["ACSM2026","IUSCA2021","ROM2021"]}'::jsonb,
+    how_to = 'Apoyar la espalda en un banco inclinado, dejar los brazos caer de forma cómoda y flexionar el codo sin adelantarlo.',
+    tips = 'hombros apoyados
+codos quietos
+descenso controlado
+no forzar extensión
+Evita: bajar demasiado sin tolerancia
+Evita: elevar hombros
+Evita: usar impulso
+Evita: perder supinación
+Precaución: Reducir la inclinación o usar otra variante ante dolor anterior de hombro o tensión excesiva del tendón.
+Descanso: 60-150 s'
+where slug = 'incline-dumbbell-curl';
+
+update public.exercises
+set meta = '{"id":"ex_cable_overhead_triceps_unilateral","name_es":"Extensión unilateral de tríceps en polea","name_en":"Unilateral cable triceps extension","category":"fuerza","movement_pattern":"extensión de codo","primary_muscles":["tríceps braquial"],"secondary_muscles":["ancóneo","core"],"equipment":["polea"],"skill_level":"intermedio","stability_demand":"baja","closed_or_open_chain":"cadena abierta","unilateral":true,"axial_loading":false,"technical_complexity":"moderada","rom_range":"completo y tolerado con hombro estable","beginner_regression":"pressdown bilateral","advanced_progression":"posición por encima de la cabeza, pausa o series de alta proximidad al fallo","setup_and_execution":"Trabajar un brazo, estabilizar el tronco y extender el codo sin que el hombro rote o el cuerpo compense.","key_cues":["lado estable","codo fijo","muñeca neutra","control al volver"],"common_errors":["rotar el tronco","abrir el codo","usar impulso","perder tensión"],"contraindications_or_cautions":"Reducir la carga si la asimetría induce compensaciones; no usarlo para diagnosticar desequilibrios.","hypertrophy_reps":"10-30","strength_reps":"8-15","power_reps":"No aplica","default_rir_beginner":"4","default_rir_intermediate":"2-3","default_rir_advanced":"0-2","rest_seconds":"45-120","progression_rule":"Igualar repeticiones con cada lado; después aumentar la carga en el menor incremento posible.","failure_policy":"Puede llegar ocasionalmente a RIR 0 por lado, manteniendo control y sin extender el volumen excesivamente.","source_tags":["ACSM2026","IUSCA2021"]}'::jsonb,
+    how_to = 'Trabajar un brazo, estabilizar el tronco y extender el codo sin que el hombro rote o el cuerpo compense.',
+    tips = 'lado estable
+codo fijo
+muñeca neutra
+control al volver
+Evita: rotar el tronco
+Evita: abrir el codo
+Evita: usar impulso
+Evita: perder tensión
+Precaución: Reducir la carga si la asimetría induce compensaciones; no usarlo para diagnosticar desequilibrios.
+Descanso: 45-120 s'
+where slug = 'cable-overhead-triceps-unilateral';
+
+update public.exercises
+set meta = '{"id":"ex_front_squat","name_es":"Sentadilla frontal","name_en":"Front squat","category":"fuerza","movement_pattern":"sentadilla","primary_muscles":["cuádriceps","glúteo mayor"],"secondary_muscles":["aductores","erectores espinales","core"],"equipment":["barra","rack"],"skill_level":"intermedio","stability_demand":"moderada","closed_or_open_chain":"cadena abierta","unilateral":false,"axial_loading":false,"technical_complexity":"moderada","rom_range":"Usar el mayor rango de movimiento controlado y tolerado, sin dolor agudo ni compensación.","beginner_regression":"Goblet squat o sentadilla a caja","advanced_progression":"Pausa, tempo controlado o más carga","setup_and_execution":"Apoyar la barra en hombros, codos altos, crear presión abdominal, descender y subir manteniendo torso erguido.","key_cues":["codos altos","pie trípode","rodillas siguen pies","torso firme"],"common_errors":["codos caídos","talones inestables","perder presión","forzar profundidad"],"contraindications_or_cautions":"Modificar agarre, elevación de talón o variante ante limitaciones de muñeca, cadera o tobillo.","hypertrophy_reps":"5-15","strength_reps":"2-6","power_reps":"No prioritaria","default_rir_beginner":"3-4","default_rir_intermediate":"2-3","default_rir_advanced":"1-3","rest_seconds":"150-300","progression_rule":"Subir 2.5-5% cuando se complete el rango alto con RIR objetivo y técnica estable.","failure_policy":"Evitar fallo técnico; usar soportes de seguridad.","source_tags":["ACSM2026","IUSCA2021","ROM2021"]}'::jsonb,
+    how_to = 'Apoyar la barra en hombros, codos altos, crear presión abdominal, descender y subir manteniendo torso erguido.',
+    tips = 'codos altos
+pie trípode
+rodillas siguen pies
+torso firme
+Evita: codos caídos
+Evita: talones inestables
+Evita: perder presión
+Evita: forzar profundidad
+Precaución: Modificar agarre, elevación de talón o variante ante limitaciones de muñeca, cadera o tobillo.
+Descanso: 150-300 s'
+where slug = 'front-squat';
+
+update public.exercises
+set meta = '{"id":"ex_cable_glute_kickback","name_es":"Patada de glúteo en polea","name_en":"Cable glute kickback","category":"fuerza","movement_pattern":"extensión de cadera","primary_muscles":["glúteo mayor"],"secondary_muscles":["isquiosurales","glúteo medio","core"],"equipment":["polea","tobillera"],"skill_level":"principiante","stability_demand":"moderada","closed_or_open_chain":"cadena abierta","unilateral":true,"axial_loading":false,"technical_complexity":"moderada","rom_range":"Usar el mayor rango de movimiento controlado y tolerado, sin dolor agudo ni compensación.","beginner_regression":"Puente de glúteo","advanced_progression":"Unilateral con pausa o más carga","setup_and_execution":"Estabilizar el tronco, extender la cadera sin girar pelvis y regresar bajo control.","key_cues":["pelvis cuadrada","movimiento desde cadera","pausa arriba","sin arquear lumbar"],"common_errors":["girar pelvis","subir demasiado","usar impulso","hiperextender lumbar"],"contraindications_or_cautions":"Reducir rango si se compensa con columna lumbar; no confundir sensación con diagnóstico muscular.","hypertrophy_reps":"10-30 por lado","strength_reps":"8-15 por lado","power_reps":"No prioritaria","default_rir_beginner":"3-4","default_rir_intermediate":"1-3","default_rir_advanced":"0-2","rest_seconds":"45-120","progression_rule":"Aumentar repeticiones por lado y luego carga; conservar la pelvis estable.","failure_policy":"Apto para RIR 0 ocasional, priorizando control por lado.","source_tags":["ACSM2026","IUSCA2021","ROM2021"]}'::jsonb,
+    how_to = 'Estabilizar el tronco, extender la cadera sin girar pelvis y regresar bajo control.',
+    tips = 'pelvis cuadrada
+movimiento desde cadera
+pausa arriba
+sin arquear lumbar
+Evita: girar pelvis
+Evita: subir demasiado
+Evita: usar impulso
+Evita: hiperextender lumbar
+Precaución: Reducir rango si se compensa con columna lumbar; no confundir sensación con diagnóstico muscular.
+Descanso: 45-120 s'
+where slug = 'cable-glute-kickback';
+
+update public.exercises
+set meta = '{"id":"ex_hip_abduction_machine","name_es":"Abducción de cadera en máquina","name_en":"Hip abduction machine","category":"fuerza","movement_pattern":"abducción de cadera","primary_muscles":["glúteo medio","glúteo menor"],"secondary_muscles":["tensor de la fascia lata","glúteo mayor"],"equipment":["máquina"],"skill_level":"principiante","stability_demand":"moderada","closed_or_open_chain":"cadena abierta","unilateral":false,"axial_loading":false,"technical_complexity":"moderada","rom_range":"Usar el mayor rango de movimiento controlado y tolerado, sin dolor agudo ni compensación.","beginner_regression":"Abducción lateral con banda","advanced_progression":"Unilateral, pausa o mayor carga","setup_and_execution":"Ajustar asiento, abrir las piernas en rango controlado y volver lentamente sin rebotar.","key_cues":["pelvis estable","movimiento controlado","pausa","sin rebote"],"common_errors":["inclinar el torso","usar impulso","recortar rango","cerrar de golpe"],"contraindications_or_cautions":"Modificar rango ante dolor lateral de cadera; no prescribir una sensación de quemazón como requisito.","hypertrophy_reps":"12-30","strength_reps":"10-20","power_reps":"No prioritaria","default_rir_beginner":"3-4","default_rir_intermediate":"1-3","default_rir_advanced":"0-2","rest_seconds":"45-120","progression_rule":"Progresar primero en control y repeticiones, después en carga.","failure_policy":"RIR 0 ocasional en máquina estable, sin compensación.","source_tags":["ACSM2026","IUSCA2021","ROM2021"]}'::jsonb,
+    how_to = 'Ajustar asiento, abrir las piernas en rango controlado y volver lentamente sin rebotar.',
+    tips = 'pelvis estable
+movimiento controlado
+pausa
+sin rebote
+Evita: inclinar el torso
+Evita: usar impulso
+Evita: recortar rango
+Evita: cerrar de golpe
+Precaución: Modificar rango ante dolor lateral de cadera; no prescribir una sensación de quemazón como requisito.
+Descanso: 45-120 s'
+where slug = 'hip-abduction-machine';
+
+update public.exercises
+set meta = '{"id":"ex_box_jump","name_es":"Salto al cajón","name_en":"Box jump","category":"potencia","movement_pattern":"extensión triple","primary_muscles":["cuádriceps","glúteo mayor","pantorrilla"],"secondary_muscles":["isquiosurales","core"],"equipment":["cajón estable"],"skill_level":"principiante","stability_demand":"alta","closed_or_open_chain":"cadena cerrada","unilateral":false,"axial_loading":false,"technical_complexity":"moderada","rom_range":"controlado y suficiente para aterrizar estable","beginner_regression":"Snap-down y salto vertical de baja altura","advanced_progression":"Mayor altura solo si aterrizaje silencioso; no perseguir récords","setup_and_execution":"Elegir cajón bajo, realizar contramovimiento y aterrizar suave con control; bajar caminando.","key_cues":["aterrizaje silencioso","rodillas alineadas","cajón estable","bajar caminando"],"common_errors":["usar cajón demasiado alto","aterrizar rígido","saltar fatigado","bajar de un salto"],"contraindications_or_cautions":"No usar con dolor agudo, mala capacidad de aterrizaje o fatiga que altere la técnica.","hypertrophy_reps":"No aplica","strength_reps":"3-5","power_reps":"3-8 repeticiones explosivas o 10-30 s según ejercicio","default_rir_beginner":"3-4","default_rir_intermediate":"3-4","default_rir_advanced":"1-3","rest_seconds":"90-180","progression_rule":"Aumentar calidad y potencia antes que altura; detener cuando baje claramente la explosividad.","failure_policy":"No entrenar al fallo; finalizar por pérdida de potencia o aterrizaje.","source_tags":["ACSM2026","IUSCA2021"]}'::jsonb,
+    how_to = 'Elegir cajón bajo, realizar contramovimiento y aterrizar suave con control; bajar caminando.',
+    tips = 'aterrizaje silencioso
+rodillas alineadas
+cajón estable
+bajar caminando
+Evita: usar cajón demasiado alto
+Evita: aterrizar rígido
+Evita: saltar fatigado
+Evita: bajar de un salto
+Precaución: No usar con dolor agudo, mala capacidad de aterrizaje o fatiga que altere la técnica.
+Descanso: 90-180 s'
+where slug = 'box-jump';
+
+update public.exercises
+set meta = '{"id":"ex_medball_chest_throw","name_es":"Lanzamiento de balón medicinal al frente","name_en":"Medicine ball chest pass","category":"potencia","movement_pattern":"empuje horizontal","primary_muscles":["pectoral mayor","tríceps"],"secondary_muscles":["deltoides anterior","core"],"equipment":["balón medicinal","pared"],"skill_level":"principiante","stability_demand":"moderada","closed_or_open_chain":"cadena abierta","unilateral":false,"axial_loading":false,"technical_complexity":"baja","rom_range":"según espacio y control","beginner_regression":"Lanzamiento ligero desde posición estable","advanced_progression":"Mayor velocidad, distancia o lanzamiento con paso","setup_and_execution":"Sostener el balón al pecho, crear tensión y lanzarlo con máxima intención sin compensar con la espalda.","key_cues":["máxima intención","tronco estable","balón adecuado","recoger con seguridad"],"common_errors":["usar demasiado peso","perder postura","repeticiones lentas","lanzar hacia personas"],"contraindications_or_cautions":"Usar zona despejada, balón apropiado y distancia segura.","hypertrophy_reps":"No aplica","strength_reps":"3-8","power_reps":"3-8 repeticiones explosivas o 10-30 s según ejercicio","default_rir_beginner":"3-5","default_rir_intermediate":"3-4","default_rir_advanced":"1-3","rest_seconds":"60-150","progression_rule":"Subir peso o distancia únicamente si la velocidad se mantiene alta.","failure_policy":"No llegar al fallo; terminar por pérdida de velocidad.","source_tags":["ACSM2026","IUSCA2021"]}'::jsonb,
+    how_to = 'Sostener el balón al pecho, crear tensión y lanzarlo con máxima intención sin compensar con la espalda.',
+    tips = 'máxima intención
+tronco estable
+balón adecuado
+recoger con seguridad
+Evita: usar demasiado peso
+Evita: perder postura
+Evita: repeticiones lentas
+Evita: lanzar hacia personas
+Precaución: Usar zona despejada, balón apropiado y distancia segura.
+Descanso: 60-150 s'
+where slug = 'medball-chest-throw';
+
+update public.exercises
+set meta = '{"id":"ex_kettlebell_swing","name_es":"Swing con kettlebell","name_en":"Kettlebell swing","category":"potencia","movement_pattern":"bisagra de cadera","primary_muscles":["glúteo mayor","isquiosurales"],"secondary_muscles":["erectores espinales","dorsal ancho","core","antebrazo"],"equipment":["kettlebell"],"skill_level":"intermedio","stability_demand":"alta","closed_or_open_chain":"cadena cerrada","unilateral":"según control y tolerancia","axial_loading":false,"technical_complexity":"alta","rom_range":"No usar fallo; parar cuando la potencia o la técnica caigan.","beginner_regression":"Bisagra con kettlebell sin impulso","advanced_progression":"Más carga o swing ruso/americano solo si el control lo permite","setup_and_execution":"Generar el movimiento desde la bisagra de cadera, proyectar la kettlebell y dejarla volver sin convertirlo en sentadilla.","key_cues":["cadera impulsa","espalda estable","brazos conectan","respiración rítmica"],"common_errors":["levantar con hombros","redondear espalda","sentadillear","usar carga excesiva"],"contraindications_or_cautions":"Aprender primero la bisagra; detener ante pérdida de ritmo o posición lumbar.","hypertrophy_reps":"No aplica","strength_reps":"8-20","power_reps":"3-8 repeticiones explosivas o 10-30 s según ejercicio","default_rir_beginner":"5-10","default_rir_intermediate":"4","default_rir_advanced":"3","rest_seconds":"2-3","progression_rule":"90-180","failure_policy":"Aumentar repeticiones o carga manteniendo la velocidad; no mezclar progresión y fatiga extrema.","source_tags":["ACSM2026","IUSCA2021"]}'::jsonb,
+    how_to = 'Generar el movimiento desde la bisagra de cadera, proyectar la kettlebell y dejarla volver sin convertirlo en sentadilla.',
+    tips = 'cadera impulsa
+espalda estable
+brazos conectan
+respiración rítmica
+Evita: levantar con hombros
+Evita: redondear espalda
+Evita: sentadillear
+Evita: usar carga excesiva
+Precaución: Aprender primero la bisagra; detener ante pérdida de ritmo o posición lumbar.
+Descanso: 2-3 s'
+where slug = 'kettlebell-swing';
+
+update public.exercises
+set meta = '{"id":"ex_dead_bug","name_es":"Dead bug","name_en":"Dead bug","category":"core","movement_pattern":"anti-extensión","primary_muscles":["recto abdominal","transverso abdominal"],"secondary_muscles":["flexores de cadera","oblicuos"],"equipment":["peso corporal"],"skill_level":"principiante","stability_demand":"moderada","closed_or_open_chain":"cadena abierta","unilateral":true,"axial_loading":false,"technical_complexity":"baja","rom_range":"según control y tolerancia","beginner_regression":"Talones apoyados o movimiento de un miembro","advanced_progression":"Extremidades más largas, lastre ligero o banda","setup_and_execution":"Mantener zona lumbar y pelvis controladas mientras se extiende brazo y pierna opuestos.","key_cues":["exhalar","costillas abajo","movimiento lento","pelvis estable"],"common_errors":["arquear lumbar","mover demasiado rápido","perder respiración","extender más allá del control"],"contraindications_or_cautions":"Modificar rango si hay dolor lumbar o no se puede mantener control.","hypertrophy_reps":"No aplica","strength_reps":"6-15 por lado","power_reps":"3-8 repeticiones explosivas o 10-30 s según ejercicio","default_rir_beginner":"3-4","default_rir_intermediate":"2-3","default_rir_advanced":"1-3","rest_seconds":"45-120","progression_rule":"Aumentar rango y control antes de añadir resistencia.","failure_policy":"Detener cuando la espalda pierda contacto o control.","source_tags":["ACSM2026","IUSCA2021"]}'::jsonb,
+    how_to = 'Mantener zona lumbar y pelvis controladas mientras se extiende brazo y pierna opuestos.',
+    tips = 'exhalar
+costillas abajo
+movimiento lento
+pelvis estable
+Evita: arquear lumbar
+Evita: mover demasiado rápido
+Evita: perder respiración
+Evita: extender más allá del control
+Precaución: Modificar rango si hay dolor lumbar o no se puede mantener control.
+Descanso: 45-120 s'
+where slug = 'dead-bug';
+
+update public.exercises
+set meta = '{"id":"ex_sled_push","name_es":"Empuje de trineo","name_en":"Sled push","category":"acondicionamiento","movement_pattern":"empuje locomotor","primary_muscles":["cuádriceps","glúteos","pantorrilla"],"secondary_muscles":["isquiosurales","core","hombros"],"equipment":["trineo","discos"],"skill_level":"principiante","stability_demand":"moderada","closed_or_open_chain":"cadena cerrada","unilateral":false,"axial_loading":false,"technical_complexity":"moderada","rom_range":"según distancia y técnica","beginner_regression":"Empuje ligero y corto","advanced_progression":"Más distancia, carga o intervalos","setup_and_execution":"Inclinarse desde los tobillos, mantener brazos firmes y empujar con pasos constantes.","key_cues":["empujar el suelo","espalda neutra","pasos constantes","respirar"],"common_errors":["doblar cintura","correr sin control","carga excesiva","bloquear respiración"],"contraindications_or_cautions":"Superficie y carga deben permitir detenerse con seguridad; vigilar tolerancia cardiovascular.","hypertrophy_reps":"No aplica","strength_reps":"10-40 m","power_reps":"3-8 repeticiones explosivas o 10-30 s según ejercicio","default_rir_beginner":"4","default_rir_intermediate":"3","default_rir_advanced":"2-3","rest_seconds":"90-240","progression_rule":"Progresar distancia o carga manteniendo ritmo y postura.","failure_policy":"No usar fallo; terminar por pérdida de técnica o intensidad excesiva.","source_tags":["ACSM2026","IUSCA2021"]}'::jsonb,
+    how_to = 'Inclinarse desde los tobillos, mantener brazos firmes y empujar con pasos constantes.',
+    tips = 'empujar el suelo
+espalda neutra
+pasos constantes
+respirar
+Evita: doblar cintura
+Evita: correr sin control
+Evita: carga excesiva
+Evita: bloquear respiración
+Precaución: Superficie y carga deben permitir detenerse con seguridad; vigilar tolerancia cardiovascular.
+Descanso: 90-240 s'
+where slug = 'sled-push';
+
+update public.exercises
+set meta = '{"id":"ex_barbell_back_squat","name_es":"Sentadilla trasera con barra","name_en":"Barbell back squat","category":"fuerza","movement_pattern":"sentadilla","primary_muscles":["cuádriceps","glúteo mayor"],"secondary_muscles":["aductores","erectores espinales","isquiosurales"],"equipment":["barra","discos","rack"],"skill_level":"intermedio","stability_demand":"alta","closed_or_open_chain":"cadena cerrada","unilateral":false,"axial_loading":true,"technical_complexity":"alta","rom_range":"profundo o hasta el rango que mantenga control y tolerancia","beginner_regression":"sentadilla a caja alta o goblet squat","advanced_progression":"high-bar/low-bar con sobrecarga progresiva; pausa o tempo solo con propósito","setup_and_execution":"Colocar la barra estable, crear presión intraabdominal, desbloquear cadera y rodillas, descender con control manteniendo el pie en contacto y subir empujando el suelo. La profundidad se individualiza según antropometría, movilidad y control.","key_cues":["pie trípode","rodillas siguen la línea de los pies","tronco firme","no sacrificar rango por carga"],"common_errors":["colapsar rodillas hacia dentro","perder presión del tronco","rebotar sin control","forzar profundidad dolorosa"],"contraindications_or_cautions":"No usar dolor agudo como criterio de progreso. Requiere supervisión inicial; modificar carga, rango o variante ante síntomas persistentes.","hypertrophy_reps":"5-15","strength_reps":"2-6","power_reps":"No es la variante principal; usar una variante explosiva específica","default_rir_beginner":"3-4","default_rir_intermediate":"2-3","default_rir_advanced":"1-3; fallo no recomendado de rutina","rest_seconds":"150-300","progression_rule":"Doble progresión: completar el extremo alto del rango con el RIR objetivo en todas las series y aumentar 2.5-5% la carga.","failure_policy":"Evitar fallo técnico; reservar RIR 0 para contextos muy controlados y no como norma.","source_tags":["ACSM2026","IUSCA2021","MDPI2022"]}'::jsonb,
+    how_to = 'Colocar la barra estable, crear presión intraabdominal, desbloquear cadera y rodillas, descender con control manteniendo el pie en contacto y subir empujando el suelo. La profundidad se individualiza según antropometría, movilidad y control.',
+    tips = 'pie trípode
+rodillas siguen la línea de los pies
+tronco firme
+no sacrificar rango por carga
+Evita: colapsar rodillas hacia dentro
+Evita: perder presión del tronco
+Evita: rebotar sin control
+Evita: forzar profundidad dolorosa
+Precaución: No usar dolor agudo como criterio de progreso. Requiere supervisión inicial; modificar carga, rango o variante ante síntomas persistentes.
+Descanso: 150-300 s'
+where slug = 'barbell-back-squat';
+
+update public.exercises
+set meta = '{"id":"ex_goblet_squat","name_es":"Sentadilla goblet","name_en":"Goblet squat","category":"fuerza","movement_pattern":"sentadilla","primary_muscles":["cuádriceps","glúteo mayor"],"secondary_muscles":["aductores","core"],"equipment":["mancuerna o kettlebell"],"skill_level":"principiante","stability_demand":"moderada","closed_or_open_chain":"cadena cerrada","unilateral":false,"axial_loading":false,"technical_complexity":"baja","rom_range":"hasta rango cómodo y controlado","beginner_regression":"sentadilla a caja","advanced_progression":"sentadilla frontal o trasera; pausa si se necesita mejorar control","setup_and_execution":"Sostener la carga frente al pecho, mantener el torso estable, sentarse entre las caderas y volver a la posición inicial sin perder equilibrio.","key_cues":["carga cerca del cuerpo","talón y antepié apoyados","descenso controlado"],"common_errors":["elevar talones sin necesidad","redondear el tronco","usar impulso"],"contraindications_or_cautions":"Adaptar profundidad y posición de pies a la movilidad y tolerancia individual.","hypertrophy_reps":"8-20","strength_reps":"6-12","power_reps":"No prioritaria","default_rir_beginner":"3-4","default_rir_intermediate":"2-3","default_rir_advanced":"1-3","rest_seconds":"90-180","progression_rule":"Aumentar repeticiones dentro del rango; luego subir la carga y volver al límite bajo.","failure_policy":"No llegar al fallo si la técnica se deteriora.","source_tags":["ACSM2026","MDPI2022"]}'::jsonb,
+    how_to = 'Sostener la carga frente al pecho, mantener el torso estable, sentarse entre las caderas y volver a la posición inicial sin perder equilibrio.',
+    tips = 'carga cerca del cuerpo
+talón y antepié apoyados
+descenso controlado
+Evita: elevar talones sin necesidad
+Evita: redondear el tronco
+Evita: usar impulso
+Precaución: Adaptar profundidad y posición de pies a la movilidad y tolerancia individual.
+Descanso: 90-180 s'
+where slug = 'goblet-squat';
+
+update public.exercises
+set meta = '{"id":"ex_barbell_deadlift","name_es":"Peso muerto convencional","name_en":"Conventional deadlift","category":"fuerza","movement_pattern":"bisagra de cadera","primary_muscles":["glúteo mayor","isquiosurales","erectores espinales"],"secondary_muscles":["dorsal ancho","cuádriceps","trapecio"],"equipment":["barra","discos"],"skill_level":"intermedio","stability_demand":"alta","closed_or_open_chain":"cadena cerrada","unilateral":false,"axial_loading":true,"technical_complexity":"alta","rom_range":"desde el suelo solo si se mantiene posición y control","beginner_regression":"peso muerto con kettlebell desde elevación","advanced_progression":"peso muerto con pausa, déficit o rumano según objetivo","setup_and_execution":"Barra sobre mediopié, caderas y hombros coordinados, espalda neutra, tomar la barra y empujar el suelo manteniendo la carga cerca. Bloquear sin hiperextender.","key_cues":["barra cerca","empujar el suelo","axilas cerradas","bloqueo neutro"],"common_errors":["tirar con la espalda flexionada","barra se aleja","hiperextender arriba","fatigar al punto de perder técnica"],"contraindications_or_cautions":"La posición inicial y el rango deben modificarse si no se puede mantener control. No diagnosticar dolor; derivar ante síntomas neurológicos o persistentes.","hypertrophy_reps":"5-12","strength_reps":"1-5","power_reps":"No prioritaria","default_rir_beginner":"4","default_rir_intermediate":"2-3","default_rir_advanced":"1-3","rest_seconds":"180-300","progression_rule":"Subir carga solo si todas las repeticiones conservan velocidad y posición consistentes.","failure_policy":"No programar fallo concéntrico; detener ante fallo técnico.","source_tags":["ACSM2026","MDPI2022"]}'::jsonb,
+    how_to = 'Barra sobre mediopié, caderas y hombros coordinados, espalda neutra, tomar la barra y empujar el suelo manteniendo la carga cerca. Bloquear sin hiperextender.',
+    tips = 'barra cerca
+empujar el suelo
+axilas cerradas
+bloqueo neutro
+Evita: tirar con la espalda flexionada
+Evita: barra se aleja
+Evita: hiperextender arriba
+Evita: fatigar al punto de perder técnica
+Precaución: La posición inicial y el rango deben modificarse si no se puede mantener control. No diagnosticar dolor; derivar ante síntomas neurológicos o persistentes.
+Descanso: 180-300 s'
+where slug = 'barbell-deadlift';
+
+update public.exercises
+set meta = '{"id":"ex_barbell_hip_thrust","name_es":"Hip thrust con barra","name_en":"Barbell hip thrust","category":"fuerza","movement_pattern":"extensión de cadera","primary_muscles":["glúteo mayor"],"secondary_muscles":["isquiosurales","aductores"],"equipment":["barra","banco","discos"],"skill_level":"principiante","stability_demand":"moderada","closed_or_open_chain":"cadena cerrada","unilateral":false,"axial_loading":false,"technical_complexity":"moderada","rom_range":"extensión completa tolerada sin compensar con la zona lumbar","beginner_regression":"puente de glúteo en suelo","advanced_progression":"unilateral o pausa isométrica; aumentar carga antes que añadir técnicas de fatiga","setup_and_execution":"Apoyar la parte inferior de las escápulas en un banco estable, pies firmes, subir extendiendo cadera y finalizar con pelvis neutra.","key_cues":["costillas abajo","mentón ligeramente recogido","empujar con todo el pie","pausa arriba"],"common_errors":["hiperextender lumbar","pies demasiado lejos o cerca","rebotar"],"contraindications_or_cautions":"Acolchar la barra; ajustar banco y rango para evitar molestias lumbares o de cadera.","hypertrophy_reps":"6-20","strength_reps":"5-10","power_reps":"No prioritaria","default_rir_beginner":"3-4","default_rir_intermediate":"1-3","default_rir_advanced":"0-2 ocasional","rest_seconds":"90-180","progression_rule":"Cuando se logre el tope del rango con RIR objetivo, aumentar 2.5-5%.","failure_policy":"El fallo puede usarse ocasionalmente en variantes estables, pero no debe comprometer la pelvis ni la espalda.","source_tags":["ACSM2026","IUSCA2021"]}'::jsonb,
+    how_to = 'Apoyar la parte inferior de las escápulas en un banco estable, pies firmes, subir extendiendo cadera y finalizar con pelvis neutra.',
+    tips = 'costillas abajo
+mentón ligeramente recogido
+empujar con todo el pie
+pausa arriba
+Evita: hiperextender lumbar
+Evita: pies demasiado lejos o cerca
+Evita: rebotar
+Precaución: Acolchar la barra; ajustar banco y rango para evitar molestias lumbares o de cadera.
+Descanso: 90-180 s'
+where slug = 'hip-thrust';
+
+update public.exercises
+set meta = '{"id":"ex_barbell_bench_press","name_es":"Press de banca con barra","name_en":"Barbell bench press","category":"fuerza","movement_pattern":"empuje horizontal","primary_muscles":["pectoral mayor","tríceps"],"secondary_muscles":["deltoides anterior"],"equipment":["barra","banco","rack"],"skill_level":"intermedio","stability_demand":"moderada","closed_or_open_chain":"cadena abierta","unilateral":false,"axial_loading":false,"technical_complexity":"moderada","rom_range":"barra hacia el torso con control y hombros tolerantes","beginner_regression":"press con mancuernas o máquina","advanced_progression":"pausa, agarre específico o variante inclinada según objetivo","setup_and_execution":"Escápulas estables, pies firmes, agarre consistente, bajar con control y presionar sin perder trayectoria.","key_cues":["puntos de apoyo firmes","muñeca sobre antebrazo","codos no excesivamente abiertos","barra estable"],"common_errors":["rebotar en el pecho","perder control escapular","agarre inestable","fallo sin seguros o compañero"],"contraindications_or_cautions":"Usar rack con seguros y no entrenar al fallo sin un sistema de seguridad. Ajustar agarre y rango ante dolor de hombro.","hypertrophy_reps":"6-15","strength_reps":"2-6","power_reps":"3-6 con carga moderada y máxima intención","default_rir_beginner":"3-4","default_rir_intermediate":"2-3","default_rir_advanced":"1-2; RIR 0 solo con seguridad","rest_seconds":"150-300","progression_rule":"Doble progresión manteniendo trayectoria y RIR; aumentar 2.5-5% al superar el rango.","failure_policy":"RIR 0 solo con seguros/spotter y preferentemente en máquinas o mancuernas.","source_tags":["ACSM2026","IUSCA2021","MDPI2022"]}'::jsonb,
+    how_to = 'Escápulas estables, pies firmes, agarre consistente, bajar con control y presionar sin perder trayectoria.',
+    tips = 'puntos de apoyo firmes
+muñeca sobre antebrazo
+codos no excesivamente abiertos
+barra estable
+Evita: rebotar en el pecho
+Evita: perder control escapular
+Evita: agarre inestable
+Evita: fallo sin seguros o compañero
+Precaución: Usar rack con seguros y no entrenar al fallo sin un sistema de seguridad. Ajustar agarre y rango ante dolor de hombro.
+Descanso: 150-300 s'
+where slug = 'barbell-bench-press';
+
+update public.exercises
+set meta = '{"id":"ex_push_up","name_es":"Flexión de brazos","name_en":"Push-up","category":"fuerza","movement_pattern":"empuje horizontal","primary_muscles":["pectoral mayor","tríceps"],"secondary_muscles":["deltoides anterior","serrato anterior","core"],"equipment":["peso corporal"],"skill_level":"principiante","stability_demand":"moderada","closed_or_open_chain":"cadena cerrada","unilateral":false,"axial_loading":false,"technical_complexity":"baja","rom_range":"pecho cerca del suelo sin perder alineación","beginner_regression":"flexión inclinada","advanced_progression":"pies elevados, lastre o unilateral asistida","setup_and_execution":"Cuerpo en bloque, manos bajo o ligeramente fuera de hombros, descender controlado y empujar manteniendo pelvis y escápulas controladas.","key_cues":["cuerpo en línea","manos estables","codos aproximadamente 30-60 grados","rango tolerado"],"common_errors":["hundir la cadera","recortar el rango","abrir codos excesivamente"],"contraindications_or_cautions":"Modificar inclinación, rango o apoyo si hay dolor de muñeca u hombro.","hypertrophy_reps":"8-30","strength_reps":"5-20","power_reps":"3-8 explosivas si se domina la técnica","default_rir_beginner":"3-4","default_rir_intermediate":"2-3","default_rir_advanced":"0-2","rest_seconds":"90-180","progression_rule":"Aumentar repeticiones; al llegar al máximo, aumentar dificultad o añadir carga.","failure_policy":"Fallo ocasional en variantes estables, sin perder alineación.","source_tags":["ACSM2026","MDPI2022"]}'::jsonb,
+    how_to = 'Cuerpo en bloque, manos bajo o ligeramente fuera de hombros, descender controlado y empujar manteniendo pelvis y escápulas controladas.',
+    tips = 'cuerpo en línea
+manos estables
+codos aproximadamente 30-60 grados
+rango tolerado
+Evita: hundir la cadera
+Evita: recortar el rango
+Evita: abrir codos excesivamente
+Precaución: Modificar inclinación, rango o apoyo si hay dolor de muñeca u hombro.
+Descanso: 90-180 s'
+where slug = 'push-up';
+
+update public.exercises
+set meta = '{"id":"ex_pull_up","name_es":"Dominada pronada","name_en":"Pull-up","category":"fuerza","movement_pattern":"tracción vertical","primary_muscles":["dorsal ancho","bíceps"],"secondary_muscles":["trapecio inferior","romboides","antebrazo","core"],"equipment":["barra de dominadas"],"skill_level":"intermedio","stability_demand":"alta","closed_or_open_chain":"cadena cerrada","unilateral":false,"axial_loading":false,"technical_complexity":"moderada","rom_range":"desde extensión activa hasta barbilla sobre barra, si es tolerado","beginner_regression":"jalón al pecho, dominada asistida o isométricos","advanced_progression":"lastre o variantes con pausa","setup_and_execution":"Iniciar con escápulas activas, mantener costillas y pelvis controladas, tirar llevando codos hacia el tronco y bajar bajo control.","key_cues":["agarre firme","escápulas activas","codos hacia abajo","sin balanceo"],"common_errors":["kipping no planificado","encoger hombros","recortar descenso","balancear el cuerpo"],"contraindications_or_cautions":"Progresar gradualmente en volumen de tracción y controlar molestias de codo/hombro.","hypertrophy_reps":"5-15","strength_reps":"2-8","power_reps":"No prioritaria","default_rir_beginner":"3-4","default_rir_intermediate":"1-3","default_rir_advanced":"0-2","rest_seconds":"120-240","progression_rule":"Acumular repeticiones limpias; después reducir asistencia o añadir 1.25-5 kg.","failure_policy":"Preferir fallo técnico, no repeticiones con balanceo.","source_tags":["ACSM2026","MDPI2022"]}'::jsonb,
+    how_to = 'Iniciar con escápulas activas, mantener costillas y pelvis controladas, tirar llevando codos hacia el tronco y bajar bajo control.',
+    tips = 'agarre firme
+escápulas activas
+codos hacia abajo
+sin balanceo
+Evita: kipping no planificado
+Evita: encoger hombros
+Evita: recortar descenso
+Evita: balancear el cuerpo
+Precaución: Progresar gradualmente en volumen de tracción y controlar molestias de codo/hombro.
+Descanso: 120-240 s'
+where slug = 'pull-up';
+
+update public.exercises
+set meta = '{"id":"ex_seated_cable_row","name_es":"Remo sentado en polea","name_en":"Seated cable row","category":"fuerza","movement_pattern":"tracción horizontal","primary_muscles":["dorsal ancho","romboides","trapecio medio"],"secondary_muscles":["bíceps","deltoides posterior"],"equipment":["polea"],"skill_level":"principiante","stability_demand":"baja","closed_or_open_chain":"cadena abierta","unilateral":false,"axial_loading":false,"technical_complexity":"baja","rom_range":"estirar sin perder control y retraer sin hiperextender","beginner_regression":"remo con pecho apoyado","advanced_progression":"unilateral, pausa o agarre diferente","setup_and_execution":"Sentarse estable, iniciar con hombros controlados, tirar llevando codos hacia atrás y regresar lentamente sin balancear el tronco.","key_cues":["tronco estable","codos siguen trayectoria","pausa breve","retorno controlado"],"common_errors":["usar impulso","encoger hombros","convertirlo en extensión lumbar"],"contraindications_or_cautions":"Ajustar rango y agarre a tolerancia de hombro y codo.","hypertrophy_reps":"8-20","strength_reps":"6-12","power_reps":"No prioritaria","default_rir_beginner":"3-4","default_rir_intermediate":"1-3","default_rir_advanced":"0-2","rest_seconds":"90-180","progression_rule":"Aumentar repeticiones con el mismo control antes de subir la carga.","failure_policy":"RIR 0 ocasional en máquina/polea, sin compensación del tronco.","source_tags":["ACSM2026","MDPI2022"]}'::jsonb,
+    how_to = 'Sentarse estable, iniciar con hombros controlados, tirar llevando codos hacia atrás y regresar lentamente sin balancear el tronco.',
+    tips = 'tronco estable
+codos siguen trayectoria
+pausa breve
+retorno controlado
+Evita: usar impulso
+Evita: encoger hombros
+Evita: convertirlo en extensión lumbar
+Precaución: Ajustar rango y agarre a tolerancia de hombro y codo.
+Descanso: 90-180 s'
+where slug = 'cable-seated-row';
+
+update public.exercises
+set meta = '{"id":"ex_overhead_press","name_es":"Press militar con mancuernas","name_en":"Dumbbell overhead press","category":"fuerza","movement_pattern":"empuje vertical","primary_muscles":["deltoides anterior","deltoides lateral","tríceps"],"secondary_muscles":["trapecio superior","core"],"equipment":["mancuernas","banco opcional"],"skill_level":"principiante","stability_demand":"moderada","closed_or_open_chain":"cadena abierta","unilateral":false,"axial_loading":false,"technical_complexity":"moderada","rom_range":"hasta extensión cómoda sin dolor ni compensación","beginner_regression":"press sentado con respaldo o máquina","advanced_progression":"de pie, unilateral o barra si el objetivo lo justifica","setup_and_execution":"Mancuernas cerca de hombros, tronco firme, presionar verticalmente y bajar de forma controlada.","key_cues":["muñecas neutras","costillas controladas","no encoger hombros","trayectoria estable"],"common_errors":["arquear excesivamente","bajar fuera de control","forzar rango doloroso"],"contraindications_or_cautions":"Modificar agarre, respaldo o rango ante molestias de hombro; no prescribir dolor como adaptación.","hypertrophy_reps":"6-20","strength_reps":"4-10","power_reps":"No prioritaria","default_rir_beginner":"3-4","default_rir_intermediate":"2-3","default_rir_advanced":"1-2","rest_seconds":"90-180","progression_rule":"Doble progresión; aumentar carga cuando se alcance el tope con técnica consistente.","failure_policy":"Fallo técnico, no fallo absoluto, especialmente de pie.","source_tags":["ACSM2026","MDPI2022"]}'::jsonb,
+    how_to = 'Mancuernas cerca de hombros, tronco firme, presionar verticalmente y bajar de forma controlada.',
+    tips = 'muñecas neutras
+costillas controladas
+no encoger hombros
+trayectoria estable
+Evita: arquear excesivamente
+Evita: bajar fuera de control
+Evita: forzar rango doloroso
+Precaución: Modificar agarre, respaldo o rango ante molestias de hombro; no prescribir dolor como adaptación.
+Descanso: 90-180 s'
+where slug = 'dumbbell-shoulder-press';
+
+update public.exercises
+set meta = '{"id":"ex_leg_press","name_es":"Prensa de piernas","name_en":"Leg press","category":"fuerza","movement_pattern":"sentadilla","primary_muscles":["cuádriceps","glúteo mayor"],"secondary_muscles":["aductores","isquiosurales"],"equipment":["máquina de prensa"],"skill_level":"principiante","stability_demand":"baja","closed_or_open_chain":"cadena cerrada","unilateral":false,"axial_loading":false,"technical_complexity":"baja","rom_range":"lo más profundo posible manteniendo pelvis y control","beginner_regression":"prensa con carga ligera y rango reducido","advanced_progression":"unilateral o más carga; no forzar profundidad lumbar","setup_and_execution":"Ajustar asiento, colocar pies simétricos, descender controlado sin despegar pelvis y extender sin bloquear agresivamente rodillas.","key_cues":["pelvis estable","rodillas siguen pies","control en descenso","no bloquear con violencia"],"common_errors":["despegar glúteos","acercar demasiado rodillas al pecho","bloquear rodillas"],"contraindications_or_cautions":"No permitir que la pelvis se redondee por buscar más profundidad; ajustar asiento y pies.","hypertrophy_reps":"8-25","strength_reps":"5-12","power_reps":"No prioritaria","default_rir_beginner":"3-4","default_rir_intermediate":"1-3","default_rir_advanced":"0-2","rest_seconds":"120-240","progression_rule":"Aumentar repeticiones antes de subir carga; registrar profundidad y posición del asiento.","failure_policy":"Puede acercarse más al fallo que una sentadilla libre, pero detener si se pierde pelvis o rango seguro.","source_tags":["ACSM2026","MDPI2022"]}'::jsonb,
+    how_to = 'Ajustar asiento, colocar pies simétricos, descender controlado sin despegar pelvis y extender sin bloquear agresivamente rodillas.',
+    tips = 'pelvis estable
+rodillas siguen pies
+control en descenso
+no bloquear con violencia
+Evita: despegar glúteos
+Evita: acercar demasiado rodillas al pecho
+Evita: bloquear rodillas
+Precaución: No permitir que la pelvis se redondee por buscar más profundidad; ajustar asiento y pies.
+Descanso: 120-240 s'
+where slug = 'leg-press';
+
+update public.exercises
+set meta = '{"id":"ex_leg_curl","name_es":"Curl femoral sentado","name_en":"Seated leg curl","category":"fuerza","movement_pattern":"flexión de rodilla","primary_muscles":["isquiosurales"],"secondary_muscles":["gastrocnemio"],"equipment":["máquina"],"skill_level":"principiante","stability_demand":"baja","closed_or_open_chain":"cadena abierta","unilateral":false,"axial_loading":false,"technical_complexity":"baja","rom_range":"completo y tolerado, especialmente en posición alargada","beginner_regression":"curl tumbado con carga ligera","advanced_progression":"unilateral o pausas en posición acortada","setup_and_execution":"Alinear eje de la máquina con la rodilla, fijar pelvis y flexionar rodilla de forma controlada; regresar sin soltar la carga.","key_cues":["eje alineado","pelvis fija","rango controlado","sin rebotes"],"common_errors":["despegar pelvis","acortar rango","usar impulso"],"contraindications_or_cautions":"Ajustar el rodillo y rango ante molestias de rodilla o tirón agudo posterior.","hypertrophy_reps":"8-25","strength_reps":"6-15","power_reps":"No prioritaria","default_rir_beginner":"3-4","default_rir_intermediate":"1-3","default_rir_advanced":"0-2","rest_seconds":"60-150","progression_rule":"Subir repeticiones y después carga conservando el rango.","failure_policy":"RIR 0 ocasional en máquina si la ejecución permanece controlada.","source_tags":["ACSM2026","IUSCA2021"]}'::jsonb,
+    how_to = 'Alinear eje de la máquina con la rodilla, fijar pelvis y flexionar rodilla de forma controlada; regresar sin soltar la carga.',
+    tips = 'eje alineado
+pelvis fija
+rango controlado
+sin rebotes
+Evita: despegar pelvis
+Evita: acortar rango
+Evita: usar impulso
+Precaución: Ajustar el rodillo y rango ante molestias de rodilla o tirón agudo posterior.
+Descanso: 60-150 s'
+where slug = 'leg-curl';
+
+update public.exercises
+set meta = '{"id":"ex_calf_raise","name_es":"Elevación de talones de pie","name_en":"Standing calf raise","category":"fuerza","movement_pattern":"flexión plantar","primary_muscles":["gastrocnemio","sóleo"],"secondary_muscles":["intrínsecos del pie"],"equipment":["máquina o mancuernas"],"skill_level":"principiante","stability_demand":"baja","closed_or_open_chain":"cadena cerrada","unilateral":false,"axial_loading":false,"technical_complexity":"baja","rom_range":"máximo rango tolerado sin rebote","beginner_regression":"elevación bilateral sin carga","advanced_progression":"unilateral, pausa abajo y arriba","setup_and_execution":"Apoyar metatarsos, bajar controlado a dorsiflexión tolerada, subir y pausar arriba sin rebotar.","key_cues":["rango completo","pausa","rodilla estable","sin rebote"],"common_errors":["rebotes rápidos","recortar la bajada","rotar el pie"],"contraindications_or_cautions":"No forzar dorsiflexión si existe dolor agudo en tendón o pantorrilla.","hypertrophy_reps":"8-30","strength_reps":"6-15","power_reps":"No prioritaria","default_rir_beginner":"3-4","default_rir_intermediate":"1-3","default_rir_advanced":"0-2","rest_seconds":"60-150","progression_rule":"Aumentar repeticiones con pausa y luego carga.","failure_policy":"Fallo ocasional con máquina estable; detener ante calambre o pérdida del rango.","source_tags":["ACSM2026","MDPI2022"]}'::jsonb,
+    how_to = 'Apoyar metatarsos, bajar controlado a dorsiflexión tolerada, subir y pausar arriba sin rebotar.',
+    tips = 'rango completo
+pausa
+rodilla estable
+sin rebote
+Evita: rebotes rápidos
+Evita: recortar la bajada
+Evita: rotar el pie
+Precaución: No forzar dorsiflexión si existe dolor agudo en tendón o pantorrilla.
+Descanso: 60-150 s'
+where slug = 'standing-calf-raise';
+
+update public.exercises
+set meta = '{"id":"ex_plank","name_es":"Plancha frontal","name_en":"Front plank","category":"core","movement_pattern":"anti-extensión","primary_muscles":["recto abdominal","transverso abdominal"],"secondary_muscles":["oblicuos","glúteos","serrato"],"equipment":["peso corporal"],"skill_level":"principiante","stability_demand":"moderada","closed_or_open_chain":"cadena cerrada","unilateral":false,"axial_loading":false,"technical_complexity":"baja","rom_range":"isométrico; mantener alineación","beginner_regression":"plancha con rodillas apoyadas","advanced_progression":"palanca más larga, carga o variante unilateral","setup_and_execution":"Apoyar antebrazos, crear tensión de glúteos y abdomen, mantener pelvis neutra y respirar sin perder posición.","key_cues":["costillas abajo","glúteos activos","respirar","cuello neutro"],"common_errors":["hundir lumbar","elevar demasiado cadera","aguantar la respiración"],"contraindications_or_cautions":"No usar duración máxima como único objetivo; detener si aparece dolor lumbar.","hypertrophy_reps":"No es el objetivo principal","strength_reps":"10-40 s por serie","power_reps":"No aplica","default_rir_beginner":"No aplica; 3-4 repeticiones técnicas equivalentes","default_rir_intermediate":"No aplica","default_rir_advanced":"No aplica","rest_seconds":"45-120","progression_rule":"Aumentar tensión o dificultad antes que duración indefinida; usar 20-40 s de calidad como referencia.","failure_policy":"Detener cuando se pierde alineación o respiración.","source_tags":["MDPI2022"]}'::jsonb,
+    how_to = 'Apoyar antebrazos, crear tensión de glúteos y abdomen, mantener pelvis neutra y respirar sin perder posición.',
+    tips = 'costillas abajo
+glúteos activos
+respirar
+cuello neutro
+Evita: hundir lumbar
+Evita: elevar demasiado cadera
+Evita: aguantar la respiración
+Precaución: No usar duración máxima como único objetivo; detener si aparece dolor lumbar.
+Descanso: 45-120 s'
+where slug = 'plank';
+
+update public.exercises
+set meta = '{"id":"ex_incline_dumbbell_press","name_es":"Press inclinado con mancuernas","name_en":"Incline dumbbell press","category":"fuerza","movement_pattern":"empuje horizontal","primary_muscles":["pectoral mayor, porción clavicular","tríceps"],"secondary_muscles":["deltoides anterior","serrato anterior"],"equipment":["mancuernas","banco inclinado"],"skill_level":"principiante","stability_demand":"moderada","closed_or_open_chain":"cadena abierta","unilateral":false,"axial_loading":false,"technical_complexity":"moderada","rom_range":"descender hasta rango tolerado manteniendo control escapular","beginner_regression":"press plano con máquina o mancuernas","advanced_progression":"pausa breve, mayor carga o press inclinado con barra","setup_and_execution":"Ajustar el banco aproximadamente entre 15 y 45 grados según objetivo y tolerancia. Llevar las mancuernas a la posición inicial, bajar con control y presionar manteniendo muñecas y antebrazos alineados.","key_cues":["escápulas estables","mancuernas descienden de forma simétrica","codos no excesivamente abiertos","sin rebote"],"common_errors":["usar demasiada inclinación","perder control al bajar","chocar mancuernas arriba","arquear excesivamente"],"contraindications_or_cautions":"No existe un ángulo universal óptimo. Reducir inclinación, rango o carga si aparece dolor anterior de hombro.","hypertrophy_reps":"6-20","strength_reps":"4-10","power_reps":"No prioritaria","default_rir_beginner":"3-4","default_rir_intermediate":"2-3","default_rir_advanced":"1-2","rest_seconds":"120-240","progression_rule":"Completar el extremo alto del rango con el RIR objetivo y luego aumentar 2-5% la carga.","failure_policy":"RIR 0 solo ocasionalmente y con mancuernas controlables; evitar fallo si no se puede abandonar la posición con seguridad.","source_tags":["ACSM2026","IUSCA2021","ROM2021"]}'::jsonb,
+    how_to = 'Ajustar el banco aproximadamente entre 15 y 45 grados según objetivo y tolerancia. Llevar las mancuernas a la posición inicial, bajar con control y presionar manteniendo muñecas y antebrazos alineados.',
+    tips = 'escápulas estables
+mancuernas descienden de forma simétrica
+codos no excesivamente abiertos
+sin rebote
+Evita: usar demasiada inclinación
+Evita: perder control al bajar
+Evita: chocar mancuernas arriba
+Evita: arquear excesivamente
+Precaución: No existe un ángulo universal óptimo. Reducir inclinación, rango o carga si aparece dolor anterior de hombro.
+Descanso: 120-240 s'
+where slug = 'incline-dumbbell-press';
+
+update public.exercises
+set meta = '{"id":"ex_cable_fly","name_es":"Apertura de pecho en polea","name_en":"Cable chest fly","category":"fuerza","movement_pattern":"aducción horizontal","primary_muscles":["pectoral mayor"],"secondary_muscles":["deltoides anterior","bíceps, porción corta"],"equipment":["poleas"],"skill_level":"principiante","stability_demand":"baja","closed_or_open_chain":"cadena abierta","unilateral":false,"axial_loading":false,"technical_complexity":"baja","rom_range":"permitir estiramiento tolerado sin perder posición del hombro","beginner_regression":"máquina de aperturas con carga ligera","advanced_progression":"unilateral, posición de poleas ajustada o pausa en acortamiento","setup_and_execution":"Adoptar una base estable, mantener una ligera flexión de codos y juntar las manos siguiendo un arco controlado. Volver lentamente sin dejar que la carga tire del hombro.","key_cues":["codos ligeramente flexionados","hombros bajos","arco controlado","pausa opcional"],"common_errors":["convertirlo en press","extender demasiado el hombro","usar impulso","flexionar y extender los codos"],"contraindications_or_cautions":"Individualizar el estiramiento; no forzar el hombro hacia una posición dolorosa.","hypertrophy_reps":"10-30","strength_reps":"8-15","power_reps":"No aplica","default_rir_beginner":"3-4","default_rir_intermediate":"1-3","default_rir_advanced":"0-2","rest_seconds":"60-120","progression_rule":"Subir repeticiones manteniendo tensión continua; aumentar la carga en el menor incremento disponible.","failure_policy":"Es un candidato más seguro para acercarse a RIR 0 que un press pesado, siempre sin dolor ni compensación.","source_tags":["ACSM2026","IUSCA2021","ROM2021"]}'::jsonb,
+    how_to = 'Adoptar una base estable, mantener una ligera flexión de codos y juntar las manos siguiendo un arco controlado. Volver lentamente sin dejar que la carga tire del hombro.',
+    tips = 'codos ligeramente flexionados
+hombros bajos
+arco controlado
+pausa opcional
+Evita: convertirlo en press
+Evita: extender demasiado el hombro
+Evita: usar impulso
+Evita: flexionar y extender los codos
+Precaución: Individualizar el estiramiento; no forzar el hombro hacia una posición dolorosa.
+Descanso: 60-120 s'
+where slug = 'cable-fly';
+
+update public.exercises
+set meta = '{"id":"ex_dip_assisted","name_es":"Fondos en paralelas asistidos","name_en":"Assisted dip","category":"fuerza","movement_pattern":"empuje vertical/horizontal combinado","primary_muscles":["tríceps","pectoral mayor"],"secondary_muscles":["deltoides anterior","core"],"equipment":["máquina asistida o paralelas"],"skill_level":"intermedio","stability_demand":"alta","closed_or_open_chain":"cadena cerrada","unilateral":false,"axial_loading":false,"technical_complexity":"moderada","rom_range":"descenso hasta rango controlado y tolerado","beginner_regression":"press en máquina o fondos con asistencia alta","advanced_progression":"fondos libres, lastre o inclinación específica","setup_and_execution":"Estabilizar hombros, inclinar el tronco solo según el objetivo y bajar hasta donde se mantenga control. Presionar sin encoger los hombros.","key_cues":["hombros deprimidos","control en descenso","codos siguen una trayectoria estable","sin rebote"],"common_errors":["descender demasiado sin control","elevar hombros","balancearse","bloquear agresivamente"],"contraindications_or_cautions":"Exige más cuidado si existe historial de dolor anterior de hombro o esternoclavicular; usar otra variante si el rango no es tolerado.","hypertrophy_reps":"6-15","strength_reps":"3-8","power_reps":"No prioritaria","default_rir_beginner":"4","default_rir_intermediate":"2-3","default_rir_advanced":"1-2","rest_seconds":"120-240","progression_rule":"Reducir asistencia gradualmente solo cuando se completen todas las repeticiones con control escapular.","failure_policy":"Evitar fallo absoluto; usar fallo técnico y asistencia suficiente para salir con seguridad.","source_tags":["ACSM2026","MDPI2022"]}'::jsonb,
+    how_to = 'Estabilizar hombros, inclinar el tronco solo según el objetivo y bajar hasta donde se mantenga control. Presionar sin encoger los hombros.',
+    tips = 'hombros deprimidos
+control en descenso
+codos siguen una trayectoria estable
+sin rebote
+Evita: descender demasiado sin control
+Evita: elevar hombros
+Evita: balancearse
+Evita: bloquear agresivamente
+Precaución: Exige más cuidado si existe historial de dolor anterior de hombro o esternoclavicular; usar otra variante si el rango no es tolerado.
+Descanso: 120-240 s'
+where slug = 'dips';
+
+update public.exercises
+set meta = '{"id":"ex_machine_chest_press","name_es":"Press de pecho en máquina","name_en":"Machine chest press","category":"fuerza","movement_pattern":"empuje horizontal","primary_muscles":["pectoral mayor","tríceps"],"secondary_muscles":["deltoides anterior"],"equipment":["máquina"],"skill_level":"principiante","stability_demand":"baja","closed_or_open_chain":"cadena abierta","unilateral":false,"axial_loading":false,"technical_complexity":"baja","rom_range":"completo dentro de un rango cómodo y controlado","beginner_regression":"máquina con menor carga o press de pared","advanced_progression":"unilateral, pausa o series cercanas al fallo","setup_and_execution":"Ajustar el asiento para que las asas queden aproximadamente a la altura media del pecho. Empujar sin elevar hombros y regresar bajo control.","key_cues":["asiento ajustado","escápulas apoyadas","muñecas neutras","retorno controlado"],"common_errors":["asiento demasiado bajo o alto","despegar espalda","rebotar en el final"],"contraindications_or_cautions":"El ajuste de la máquina debe permitir que hombro, codo y muñeca trabajen en una trayectoria tolerable.","hypertrophy_reps":"8-25","strength_reps":"5-12","power_reps":"No prioritaria","default_rir_beginner":"3-4","default_rir_intermediate":"1-3","default_rir_advanced":"0-2","rest_seconds":"90-180","progression_rule":"Aumentar repeticiones antes de subir la placa; registrar el ajuste del asiento.","failure_policy":"Puede usarse RIR 0 ocasional en personas avanzadas porque la máquina facilita detener la serie, pero no es obligatorio.","source_tags":["ACSM2026","IUSCA2021","MDPI2022"]}'::jsonb,
+    how_to = 'Ajustar el asiento para que las asas queden aproximadamente a la altura media del pecho. Empujar sin elevar hombros y regresar bajo control.',
+    tips = 'asiento ajustado
+escápulas apoyadas
+muñecas neutras
+retorno controlado
+Evita: asiento demasiado bajo o alto
+Evita: despegar espalda
+Evita: rebotar en el final
+Precaución: El ajuste de la máquina debe permitir que hombro, codo y muñeca trabajen en una trayectoria tolerable.
+Descanso: 90-180 s'
+where slug = 'machine-chest-press';
+
+update public.exercises
+set meta = '{"id":"ex_cable_lateral_raise","name_es":"Elevación lateral en polea","name_en":"Cable lateral raise","category":"fuerza","movement_pattern":"abducción de hombro","primary_muscles":["deltoides lateral"],"secondary_muscles":["supraespinoso","trapecio superior"],"equipment":["polea"],"skill_level":"principiante","stability_demand":"baja","closed_or_open_chain":"cadena abierta","unilateral":true,"axial_loading":false,"technical_complexity":"baja","rom_range":"elevar hasta rango tolerado sin dolor ni encogimiento excesivo","beginner_regression":"elevación lateral con máquina o mancuerna ligera","advanced_progression":"unilateral con polea baja, pausa o series de alta repetición","setup_and_execution":"Situarse de lado a la polea, iniciar con brazo próximo al cuerpo y elevar en el plano escapular con control.","key_cues":["hombro relajado","codo guía el movimiento","sin balanceo","tensión continua"],"common_errors":["usar impulso","subir muy por encima del rango tolerado","encoger hombros","carga excesiva"],"contraindications_or_cautions":"La elevación debe ser indolora y adaptada a la morfología del usuario; no imponer una posición fija de pulgar o codo.","hypertrophy_reps":"10-30","strength_reps":"8-20","power_reps":"No aplica","default_rir_beginner":"3-4","default_rir_intermediate":"1-3","default_rir_advanced":"0-2","rest_seconds":"45-120","progression_rule":"Primero mejorar el rango y el control; después aumentar repeticiones y finalmente carga.","failure_policy":"RIR 0 puede utilizarse ocasionalmente en polea con baja carga y ejecución estricta.","source_tags":["ACSM2026","IUSCA2021","ROM2021"]}'::jsonb,
+    how_to = 'Situarse de lado a la polea, iniciar con brazo próximo al cuerpo y elevar en el plano escapular con control.',
+    tips = 'hombro relajado
+codo guía el movimiento
+sin balanceo
+tensión continua
+Evita: usar impulso
+Evita: subir muy por encima del rango tolerado
+Evita: encoger hombros
+Evita: carga excesiva
+Precaución: La elevación debe ser indolora y adaptada a la morfología del usuario; no imponer una posición fija de pulgar o codo.
+Descanso: 45-120 s'
+where slug = 'cable-lateral-raise';
+
+update public.exercises
+set meta = '{"id":"ex_face_pull","name_es":"Face pull en polea","name_en":"Cable face pull","category":"fuerza","movement_pattern":"tracción horizontal y rotación externa","primary_muscles":["deltoides posterior","trapecio medio e inferior"],"secondary_muscles":["infraespinoso","redondo menor","romboides"],"equipment":["polea","cuerda"],"skill_level":"principiante","stability_demand":"baja","closed_or_open_chain":"cadena abierta","unilateral":false,"axial_loading":false,"technical_complexity":"moderada","rom_range":"hasta una posición tolerada sin forzar rotación externa","beginner_regression":"remo alto con cuerda y carga ligera","advanced_progression":"unilateral o pausa isométrica","setup_and_execution":"Tirar de la cuerda hacia la cara o frente manteniendo codos controlados; separar las manos solo en la medida que se conserve el control escapular.","key_cues":["tronco estable","codos controlados","movimiento lento","sin dolor"],"common_errors":["tirar demasiado alto","usar impulso","forzar rotación externa","convertirlo en encogimiento"],"contraindications_or_cautions":"No es una prueba de movilidad ni una corrección universal del hombro; adaptar trayectoria y carga.","hypertrophy_reps":"10-30","strength_reps":"8-20","power_reps":"No aplica","default_rir_beginner":"3-4","default_rir_intermediate":"2-3","default_rir_advanced":"1-2","rest_seconds":"60-120","progression_rule":"Aumentar repeticiones y pausas antes de subir carga.","failure_policy":"No perseguir fallo si se pierde la posición del hombro o aparece dolor.","source_tags":["ACSM2026","MDPI2022"]}'::jsonb,
+    how_to = 'Tirar de la cuerda hacia la cara o frente manteniendo codos controlados; separar las manos solo en la medida que se conserve el control escapular.',
+    tips = 'tronco estable
+codos controlados
+movimiento lento
+sin dolor
+Evita: tirar demasiado alto
+Evita: usar impulso
+Evita: forzar rotación externa
+Evita: convertirlo en encogimiento
+Precaución: No es una prueba de movilidad ni una corrección universal del hombro; adaptar trayectoria y carga.
+Descanso: 60-120 s'
+where slug = 'face-pull';
+
+update public.exercises
+set meta = '{"id":"ex_cable_triceps_pressdown","name_es":"Extensión de tríceps en polea","name_en":"Cable triceps pressdown","category":"fuerza","movement_pattern":"extensión de codo","primary_muscles":["tríceps braquial"],"secondary_muscles":["ancóneo","músculos del antebrazo"],"equipment":["polea","barra o cuerda"],"skill_level":"principiante","stability_demand":"baja","closed_or_open_chain":"cadena abierta","unilateral":false,"axial_loading":false,"technical_complexity":"baja","rom_range":"flexión y extensión completas toleradas manteniendo hombro estable","beginner_regression":"máquina de tríceps o banda ligera","advanced_progression":"unilateral, cuerda, pausa o extensión por encima de la cabeza","setup_and_execution":"Fijar el hombro, mantener codos cerca del tronco y extender el codo sin convertir el movimiento en balanceo de hombros.","key_cues":["codos estables","muñecas neutras","extensión controlada","retorno lento"],"common_errors":["separar codos","inclinarse para usar impulso","bloquear con violencia","recortar el retorno"],"contraindications_or_cautions":"Modificar agarre y rango ante molestias de codo o muñeca; evitar compensar con hombro.","hypertrophy_reps":"8-30","strength_reps":"6-15","power_reps":"No aplica","default_rir_beginner":"3-4","default_rir_intermediate":"1-3","default_rir_advanced":"0-2","rest_seconds":"60-150","progression_rule":"Doble progresión; aumentar carga solo si el codo permanece estable.","failure_policy":"Es un buen candidato para RIR 0 ocasional en usuarios avanzados, porque la carga puede soltarse fácilmente.","source_tags":["ACSM2026","IUSCA2021"]}'::jsonb,
+    how_to = 'Fijar el hombro, mantener codos cerca del tronco y extender el codo sin convertir el movimiento en balanceo de hombros.',
+    tips = 'codos estables
+muñecas neutras
+extensión controlada
+retorno lento
+Evita: separar codos
+Evita: inclinarse para usar impulso
+Evita: bloquear con violencia
+Evita: recortar el retorno
+Precaución: Modificar agarre y rango ante molestias de codo o muñeca; evitar compensar con hombro.
+Descanso: 60-150 s'
+where slug = 'triceps-pushdown';
+
+update public.exercises
+set meta = '{"id":"ex_overhead_triceps_extension","name_es":"Extensión de tríceps por encima de la cabeza","name_en":"Overhead triceps extension","category":"fuerza","movement_pattern":"extensión de codo","primary_muscles":["tríceps braquial, cabeza larga"],"secondary_muscles":["ancóneo","core"],"equipment":["mancuerna o polea"],"skill_level":"intermedio","stability_demand":"moderada","closed_or_open_chain":"cadena abierta","unilateral":false,"axial_loading":false,"technical_complexity":"moderada","rom_range":"flexión profunda de codo solo si el hombro la tolera","beginner_regression":"pressdown en polea","advanced_progression":"unilateral en polea o mayor carga con control","setup_and_execution":"Mantener el brazo elevado de forma estable, flexionar el codo llevando la carga detrás de la cabeza y extender sin mover excesivamente el hombro.","key_cues":["hombro estable","codo orientado","estiramiento tolerado","sin arquear lumbar"],"common_errors":["abrir codos","mover el hombro","forzar profundidad","usar impulso lumbar"],"contraindications_or_cautions":"El estiramiento en posición elevada puede irritar hombro o codo en algunas personas; sustituir por pressdown si no se tolera.","hypertrophy_reps":"8-25","strength_reps":"6-15","power_reps":"No aplica","default_rir_beginner":"4","default_rir_intermediate":"2-3","default_rir_advanced":"0-2","rest_seconds":"60-150","progression_rule":"Aumentar repeticiones y solo después carga; priorizar control de la posición elevada.","failure_policy":"RIR 0 ocasional en polea/mancuerna controlable; parar ante pérdida del hombro o dolor.","source_tags":["ACSM2026","IUSCA2021","ROM2021"]}'::jsonb,
+    how_to = 'Mantener el brazo elevado de forma estable, flexionar el codo llevando la carga detrás de la cabeza y extender sin mover excesivamente el hombro.',
+    tips = 'hombro estable
+codo orientado
+estiramiento tolerado
+sin arquear lumbar
+Evita: abrir codos
+Evita: mover el hombro
+Evita: forzar profundidad
+Evita: usar impulso lumbar
+Precaución: El estiramiento en posición elevada puede irritar hombro o codo en algunas personas; sustituir por pressdown si no se tolera.
+Descanso: 60-150 s'
+where slug = 'dumbbell-overhead-extension';
+
+update public.exercises
+set meta = '{"id":"ex_dumbbell_curl","name_es":"Curl de bíceps con mancuernas","name_en":"Dumbbell curl","category":"fuerza","movement_pattern":"flexión de codo","primary_muscles":["bíceps braquial"],"secondary_muscles":["braquial","braquiorradial"],"equipment":["mancuernas"],"skill_level":"principiante","stability_demand":"baja","closed_or_open_chain":"cadena abierta","unilateral":false,"axial_loading":false,"technical_complexity":"baja","rom_range":"extensión y flexión completas toleradas sin adelantar hombro","beginner_regression":"curl con banda o máquina","advanced_progression":"curl inclinado, predicador o pausa en posición acortada","setup_and_execution":"Mantener el brazo cerca del tronco, flexionar el codo y volver a extender de forma controlada sin balancear el cuerpo.","key_cues":["codo estable","hombros quietos","supinación controlada","descenso lento"],"common_errors":["balancear tronco","adelantar codo","recortar extensión","flexionar muñeca"],"contraindications_or_cautions":"Ajustar supinación y extensión si existe molestia de codo o muñeca.","hypertrophy_reps":"8-30","strength_reps":"6-15","power_reps":"No aplica","default_rir_beginner":"3-4","default_rir_intermediate":"1-3","default_rir_advanced":"0-2","rest_seconds":"60-150","progression_rule":"Aumentar repeticiones con técnica estricta; después subir la carga en incrementos pequeños.","failure_policy":"Candidato apropiado para RIR 0 ocasional al final de la sesión si no hay balanceo ni dolor.","source_tags":["ACSM2026","IUSCA2021"]}'::jsonb,
+    how_to = 'Mantener el brazo cerca del tronco, flexionar el codo y volver a extender de forma controlada sin balancear el cuerpo.',
+    tips = 'codo estable
+hombros quietos
+supinación controlada
+descenso lento
+Evita: balancear tronco
+Evita: adelantar codo
+Evita: recortar extensión
+Evita: flexionar muñeca
+Precaución: Ajustar supinación y extensión si existe molestia de codo o muñeca.
+Descanso: 60-150 s'
+where slug = 'dumbbell-curl';
+
+update public.exercises
+set meta = '{"id":"ex_hammer_curl","name_es":"Curl martillo","name_en":"Hammer curl","category":"fuerza","movement_pattern":"flexión de codo","primary_muscles":["braquial","braquiorradial"],"secondary_muscles":["bíceps braquial","músculos del antebrazo"],"equipment":["mancuernas o cuerda"],"skill_level":"principiante","stability_demand":"baja","closed_or_open_chain":"cadena abierta","unilateral":false,"axial_loading":false,"technical_complexity":"baja","rom_range":"completo y tolerado","beginner_regression":"curl con banda ligera","advanced_progression":"curl cruzado, unilateral o con pausa","setup_and_execution":"Usar agarre neutro, mantener codos relativamente estables y flexionar sin desplazar el hombro hacia delante.","key_cues":["agarre neutro","codos estables","sin balanceo","descenso controlado"],"common_errors":["usar piernas","encoger hombros","recortar rango","flexionar muñeca"],"contraindications_or_cautions":"Controlar volumen si existe irritación del codo o antebrazo; modificar agarre si es necesario.","hypertrophy_reps":"8-30","strength_reps":"6-15","power_reps":"No aplica","default_rir_beginner":"3-4","default_rir_intermediate":"1-3","default_rir_advanced":"0-2","rest_seconds":"60-150","progression_rule":"Doble progresión con incrementos pequeños; priorizar el control de la fase excéntrica.","failure_policy":"RIR 0 ocasional en variantes estables y con carga que pueda soltarse sin riesgo.","source_tags":["ACSM2026","IUSCA2021"]}'::jsonb,
+    how_to = 'Usar agarre neutro, mantener codos relativamente estables y flexionar sin desplazar el hombro hacia delante.',
+    tips = 'agarre neutro
+codos estables
+sin balanceo
+descenso controlado
+Evita: usar piernas
+Evita: encoger hombros
+Evita: recortar rango
+Evita: flexionar muñeca
+Precaución: Controlar volumen si existe irritación del codo o antebrazo; modificar agarre si es necesario.
+Descanso: 60-150 s'
+where slug = 'hammer-curl';
+
+update public.exercises
+set meta = '{"id":"ex_cable_biceps_curl","name_es":"Curl de bíceps en polea","name_en":"Cable biceps curl","category":"fuerza","movement_pattern":"flexión de codo","primary_muscles":["bíceps braquial"],"secondary_muscles":["braquial","braquiorradial"],"equipment":["polea","barra o cuerda"],"skill_level":"principiante","stability_demand":"baja","closed_or_open_chain":"cadena abierta","unilateral":false,"axial_loading":false,"technical_complexity":"baja","rom_range":"completo y controlado, con tensión continua","beginner_regression":"máquina de curl","advanced_progression":"unilateral, cable alto o pausa de contracción","setup_and_execution":"Colocarse estable, fijar el codo cerca del tronco y flexionar manteniendo tensión en todo el recorrido.","key_cues":["cuerpo estable","codos no viajan","tensión continua","retorno lento"],"common_errors":["inclinarse hacia atrás","usar impulso","mover codos","soltar la carga"],"contraindications_or_cautions":"Adaptar agarre y rango ante molestias de muñeca, codo o hombro.","hypertrophy_reps":"10-30","strength_reps":"8-15","power_reps":"No aplica","default_rir_beginner":"3-4","default_rir_intermediate":"1-3","default_rir_advanced":"0-2","rest_seconds":"60-120","progression_rule":"Aumentar repeticiones y después la carga; no sacrificar tensión por usar más peso.","failure_policy":"Apto para acercarse a RIR 0 de forma ocasional, especialmente al final de la sesión.","source_tags":["ACSM2026","IUSCA2021"]}'::jsonb,
+    how_to = 'Colocarse estable, fijar el codo cerca del tronco y flexionar manteniendo tensión en todo el recorrido.',
+    tips = 'cuerpo estable
+codos no viajan
+tensión continua
+retorno lento
+Evita: inclinarse hacia atrás
+Evita: usar impulso
+Evita: mover codos
+Evita: soltar la carga
+Precaución: Adaptar agarre y rango ante molestias de muñeca, codo o hombro.
+Descanso: 60-120 s'
+where slug = 'cable-curl';
+
+update public.exercises
+set meta = '{"id":"ex_lat_pulldown_neutral","name_es":"Jalón al pecho con agarre neutro","name_en":"Neutral-grip lat pulldown","category":"fuerza","movement_pattern":"tracción vertical","primary_muscles":["dorsal ancho","bíceps"],"secondary_muscles":["redondo mayor","trapecio inferior","antebrazo"],"equipment":["polea","barra neutra"],"skill_level":"principiante","stability_demand":"moderada","closed_or_open_chain":"cadena abierta","unilateral":false,"axial_loading":false,"technical_complexity":"moderada","rom_range":"Usar el mayor rango de movimiento controlado y tolerado, sin dolor agudo ni compensación.","beginner_regression":"Jalón con asistencia y carga ligera","advanced_progression":"Dominada asistida, lastre o pausa abajo","setup_and_execution":"Fijar muslos, iniciar con escápulas activas, llevar codos hacia el tronco y volver con control.","key_cues":["pecho estable","codos hacia abajo","sin balanceo","estirar bajo control"],"common_errors":["tirar detrás del cuello","usar impulso","encoger hombros","recortar el retorno"],"contraindications_or_cautions":"Ajustar agarre y rango si hay molestias de hombro; no forzar la barra detrás de la cabeza.","hypertrophy_reps":"8-25","strength_reps":"5-12","power_reps":"No prioritaria","default_rir_beginner":"3-4","default_rir_intermediate":"1-3","default_rir_advanced":"0-2","rest_seconds":"90-180","progression_rule":"Completar el rango alto antes de aumentar la carga; mantener la trayectoria.","failure_policy":"RIR 0 ocasional en máquina/polea avanzada, sin balanceo.","source_tags":["ACSM2026","IUSCA2021","ROM2021"]}'::jsonb,
+    how_to = 'Fijar muslos, iniciar con escápulas activas, llevar codos hacia el tronco y volver con control.',
+    tips = 'pecho estable
+codos hacia abajo
+sin balanceo
+estirar bajo control
+Evita: tirar detrás del cuello
+Evita: usar impulso
+Evita: encoger hombros
+Evita: recortar el retorno
+Precaución: Ajustar agarre y rango si hay molestias de hombro; no forzar la barra detrás de la cabeza.
+Descanso: 90-180 s'
+where slug = 'lat-pulldown';
+
+update public.exercises
+set meta = '{"id":"ex_barbell_row","name_es":"Remo con barra","name_en":"Barbell row","category":"fuerza","movement_pattern":"tracción horizontal","primary_muscles":["dorsal ancho","romboides","trapecio medio"],"secondary_muscles":["deltoides posterior","bíceps","erectores espinales"],"equipment":["barra","discos"],"skill_level":"intermedio","stability_demand":"alta","closed_or_open_chain":"cadena abierta","unilateral":false,"axial_loading":true,"technical_complexity":"alta","rom_range":"Usar el mayor rango de movimiento controlado y tolerado, sin dolor agudo ni compensación.","beginner_regression":"Remo con pecho apoyado o polea","advanced_progression":"Remo Pendlay, pausa o mayor carga","setup_and_execution":"Bisagra de cadera estable, barra cercana, tirar hacia abdomen o pecho según objetivo y devolver sin perder la posición.","key_cues":["tronco fijo","barra cerca","codos controlados","abdomen firme"],"common_errors":["redondear espalda","tirar con impulso","convertirlo en encogimiento","perder la bisagra"],"contraindications_or_cautions":"Requiere más control y margen de fatiga que un remo apoyado; detener ante fallo técnico lumbar.","hypertrophy_reps":"6-15","strength_reps":"3-8","power_reps":"No prioritaria","default_rir_beginner":"3-4","default_rir_intermediate":"2-3","default_rir_advanced":"1-3","rest_seconds":"120-240","progression_rule":"Aumentar carga solo si el torso, la trayectoria y el RIR se mantienen.","failure_policy":"No programar fallo absoluto; detener en fallo técnico. ","source_tags":["ACSM2026","IUSCA2021","ROM2021"]}'::jsonb,
+    how_to = 'Bisagra de cadera estable, barra cercana, tirar hacia abdomen o pecho según objetivo y devolver sin perder la posición.',
+    tips = 'tronco fijo
+barra cerca
+codos controlados
+abdomen firme
+Evita: redondear espalda
+Evita: tirar con impulso
+Evita: convertirlo en encogimiento
+Evita: perder la bisagra
+Precaución: Requiere más control y margen de fatiga que un remo apoyado; detener ante fallo técnico lumbar.
+Descanso: 120-240 s'
+where slug = 'barbell-row';
+
+update public.exercises
+set meta = '{"id":"ex_chest_supported_row","name_es":"Remo con pecho apoyado","name_en":"Chest-supported row","category":"fuerza","movement_pattern":"tracción horizontal","primary_muscles":["romboides","trapecio medio","dorsal ancho"],"secondary_muscles":["deltoides posterior","bíceps"],"equipment":["máquina o banco","mancuernas"],"skill_level":"principiante","stability_demand":"moderada","closed_or_open_chain":"cadena abierta","unilateral":false,"axial_loading":false,"technical_complexity":"moderada","rom_range":"Usar el mayor rango de movimiento controlado y tolerado, sin dolor agudo ni compensación.","beginner_regression":"Remo en polea sentado","advanced_progression":"Unilateral, pausa o mayor carga","setup_and_execution":"Ajustar el banco, apoyar el pecho, tirar con codos y regresar sin despegar el torso.","key_cues":["pecho apoyado","codos hacia atrás","pausa breve","descenso controlado"],"common_errors":["encoger hombros","acortar rango","levantar el pecho","tirar con impulso"],"contraindications_or_cautions":"Ajustar el banco para que el hombro trabaje en trayectoria tolerable.","hypertrophy_reps":"8-25","strength_reps":"6-12","power_reps":"No prioritaria","default_rir_beginner":"3-4","default_rir_intermediate":"1-3","default_rir_advanced":"0-2","rest_seconds":"90-180","progression_rule":"Primero aumentar repeticiones y control; después subir carga.","failure_policy":"Apto para aproximarse más al fallo por su estabilidad, sin perder la posición escapular.","source_tags":["ACSM2026","IUSCA2021","ROM2021"]}'::jsonb,
+    how_to = 'Ajustar el banco, apoyar el pecho, tirar con codos y regresar sin despegar el torso.',
+    tips = 'pecho apoyado
+codos hacia atrás
+pausa breve
+descenso controlado
+Evita: encoger hombros
+Evita: acortar rango
+Evita: levantar el pecho
+Evita: tirar con impulso
+Precaución: Ajustar el banco para que el hombro trabaje en trayectoria tolerable.
+Descanso: 90-180 s'
+where slug = 'machine-row';
+
+update public.exercises
+set meta = '{"id":"ex_one_arm_dumbbell_row","name_es":"Remo unilateral con mancuerna","name_en":"One-arm dumbbell row","category":"fuerza","movement_pattern":"tracción horizontal","primary_muscles":["dorsal ancho","romboides"],"secondary_muscles":["trapecio medio","deltoides posterior","bíceps","core"],"equipment":["mancuerna","banco"],"skill_level":"principiante","stability_demand":"moderada","closed_or_open_chain":"cadena abierta","unilateral":true,"axial_loading":false,"technical_complexity":"moderada","rom_range":"Usar el mayor rango de movimiento controlado y tolerado, sin dolor agudo ni compensación.","beginner_regression":"Remo en polea unilateral","advanced_progression":"Remo con más carga o pausa","setup_and_execution":"Apoyar una mano y rodilla si se necesita, mantener pelvis estable y llevar el codo hacia la cadera.","key_cues":["pelvis estable","codo hacia atrás","cuello neutro","sin rotar"],"common_errors":["girar el torso","tirar hacia el hombro sin objetivo","usar impulso","encoger hombro"],"contraindications_or_cautions":"Equilibrar volumen entre lados; reducir carga ante compensación lumbar o dolor de hombro.","hypertrophy_reps":"8-25","strength_reps":"6-12","power_reps":"No prioritaria","default_rir_beginner":"3-4","default_rir_intermediate":"1-3","default_rir_advanced":"0-2","rest_seconds":"90-180","progression_rule":"Igualar repeticiones y técnica por lado antes de aumentar carga.","failure_policy":"Fallo técnico por lado, no balanceo para completar repeticiones.","source_tags":["ACSM2026","IUSCA2021","ROM2021"]}'::jsonb,
+    how_to = 'Apoyar una mano y rodilla si se necesita, mantener pelvis estable y llevar el codo hacia la cadera.',
+    tips = 'pelvis estable
+codo hacia atrás
+cuello neutro
+sin rotar
+Evita: girar el torso
+Evita: tirar hacia el hombro sin objetivo
+Evita: usar impulso
+Evita: encoger hombro
+Precaución: Equilibrar volumen entre lados; reducir carga ante compensación lumbar o dolor de hombro.
+Descanso: 90-180 s'
+where slug = 'one-arm-dumbbell-row';
+
+update public.exercises
+set meta = '{"id":"ex_bulgarian_split_squat","name_es":"Sentadilla búlgara","name_en":"Bulgarian split squat","category":"fuerza","movement_pattern":"sentadilla unilateral","primary_muscles":["cuádriceps","glúteo mayor"],"secondary_muscles":["aductores","isquiosurales","core"],"equipment":["mancuernas","banco"],"skill_level":"intermedio","stability_demand":"alta","closed_or_open_chain":"cadena cerrada","unilateral":true,"axial_loading":false,"technical_complexity":"moderada","rom_range":"Usar el mayor rango de movimiento controlado y tolerado, sin dolor agudo ni compensación.","beginner_regression":"Split squat con ambos pies en suelo","advanced_progression":"Mancuernas pesadas, pausa o déficit moderado","setup_and_execution":"Separar los pies, apoyar el empeine si se tolera, bajar verticalmente con control y subir empujando el suelo.","key_cues":["equilibrio antes que carga","rodilla sigue pie","pelvis estable","rango tolerado"],"common_errors":["distancia inadecuada","colapsar rodilla","impulsarse con la pierna trasera","perder equilibrio"],"contraindications_or_cautions":"Usar apoyo externo para principiantes; modificar altura y rango ante dolor de rodilla o cadera.","hypertrophy_reps":"8-20 por lado","strength_reps":"5-12 por lado","power_reps":"No prioritaria","default_rir_beginner":"3-4","default_rir_intermediate":"2-3","default_rir_advanced":"1-2","rest_seconds":"90-180","progression_rule":"Aumentar repeticiones por lado, luego carga; mantener simetría.","failure_policy":"Fallo técnico por lado; no llegar al fallo si se pierde equilibrio.","source_tags":["ACSM2026","IUSCA2021","ROM2021"]}'::jsonb,
+    how_to = 'Separar los pies, apoyar el empeine si se tolera, bajar verticalmente con control y subir empujando el suelo.',
+    tips = 'equilibrio antes que carga
+rodilla sigue pie
+pelvis estable
+rango tolerado
+Evita: distancia inadecuada
+Evita: colapsar rodilla
+Evita: impulsarse con la pierna trasera
+Evita: perder equilibrio
+Precaución: Usar apoyo externo para principiantes; modificar altura y rango ante dolor de rodilla o cadera.
+Descanso: 90-180 s'
+where slug = 'bulgarian-split-squat';
+
+update public.exercises
+set meta = '{"id":"ex_romanian_deadlift","name_es":"Peso muerto rumano","name_en":"Romanian deadlift","category":"fuerza","movement_pattern":"bisagra de cadera","primary_muscles":["isquiosurales","glúteo mayor"],"secondary_muscles":["erectores espinales","dorsal ancho","antebrazo"],"equipment":["barra o mancuernas"],"skill_level":"intermedio","stability_demand":"alta","closed_or_open_chain":"cadena abierta","unilateral":false,"axial_loading":true,"technical_complexity":"alta","rom_range":"Usar el mayor rango de movimiento controlado y tolerado, sin dolor agudo ni compensación.","beginner_regression":"Bisagra con kettlebell desde altura","advanced_progression":"Unilateral, pausa o aumento progresivo de carga","setup_and_execution":"Desbloquear rodillas, llevar cadera atrás manteniendo barra cerca y extender cadera sin hiperextender lumbar.","key_cues":["cadera atrás","barra cerca","espalda estable","sentir tensión posterior"],"common_errors":["bajar más allá del control","redondear espalda","alejar la carga","hiperextender arriba"],"contraindications_or_cautions":"La profundidad depende de la movilidad y del control; no perseguir el suelo si se pierde la posición.","hypertrophy_reps":"6-15","strength_reps":"4-8","power_reps":"No prioritaria","default_rir_beginner":"3-4","default_rir_intermediate":"2-3","default_rir_advanced":"1-3","rest_seconds":"150-300","progression_rule":"Aumentar carga solo conservando tensión y trayectoria; usar incrementos pequeños.","failure_policy":"No usar fallo absoluto; detener ante fallo técnico.","source_tags":["ACSM2026","IUSCA2021","ROM2021"]}'::jsonb,
+    how_to = 'Desbloquear rodillas, llevar cadera atrás manteniendo barra cerca y extender cadera sin hiperextender lumbar.',
+    tips = 'cadera atrás
+barra cerca
+espalda estable
+sentir tensión posterior
+Evita: bajar más allá del control
+Evita: redondear espalda
+Evita: alejar la carga
+Evita: hiperextender arriba
+Precaución: La profundidad depende de la movilidad y del control; no perseguir el suelo si se pierde la posición.
+Descanso: 150-300 s'
+where slug = 'romanian-deadlift';
+
+update public.exercises
+set meta = '{"id":"ex_leg_extension","name_es":"Extensión de rodilla en máquina","name_en":"Leg extension","category":"fuerza","movement_pattern":"extensión de rodilla","primary_muscles":["cuádriceps"],"secondary_muscles":["recto femoral","tibial anterior como estabilizador"],"equipment":["máquina"],"skill_level":"principiante","stability_demand":"moderada","closed_or_open_chain":"cadena abierta","unilateral":false,"axial_loading":false,"technical_complexity":"moderada","rom_range":"Usar el mayor rango de movimiento controlado y tolerado, sin dolor agudo ni compensación.","beginner_regression":"Extensión con carga ligera y rango cómodo","advanced_progression":"Unilateral, pausa arriba o series cercanas al fallo","setup_and_execution":"Alinear eje de máquina con rodilla, fijar pelvis y extender con control sin golpear el tope.","key_cues":["eje alineado","pelvis fija","pausa controlada","descenso lento"],"common_errors":["usar impulso","despegar pelvis","golpear el tope","recortar rango"],"contraindications_or_cautions":"Ajustar eje, rodillo y rango ante molestias de rodilla; no asumir que el dolor es necesario.","hypertrophy_reps":"10-30","strength_reps":"8-15","power_reps":"No prioritaria","default_rir_beginner":"3-4","default_rir_intermediate":"1-3","default_rir_advanced":"0-2","rest_seconds":"60-150","progression_rule":"Aumentar repeticiones antes de carga y registrar ajuste de máquina.","failure_policy":"Buen candidato para RIR 0 ocasional en máquina si no hay dolor ni rebote.","source_tags":["ACSM2026","IUSCA2021","ROM2021"]}'::jsonb,
+    how_to = 'Alinear eje de máquina con rodilla, fijar pelvis y extender con control sin golpear el tope.',
+    tips = 'eje alineado
+pelvis fija
+pausa controlada
+descenso lento
+Evita: usar impulso
+Evita: despegar pelvis
+Evita: golpear el tope
+Evita: recortar rango
+Precaución: Ajustar eje, rodillo y rango ante molestias de rodilla; no asumir que el dolor es necesario.
+Descanso: 60-150 s'
+where slug = 'leg-extension';
+
+update public.exercises
+set meta = '{"id":"ex_lying_leg_curl","name_es":"Curl femoral tumbado","name_en":"Lying leg curl","category":"fuerza","movement_pattern":"flexión de rodilla","primary_muscles":["isquiosurales"],"secondary_muscles":["gastrocnemio","glúteo como estabilizador"],"equipment":["máquina"],"skill_level":"principiante","stability_demand":"moderada","closed_or_open_chain":"cadena abierta","unilateral":false,"axial_loading":false,"technical_complexity":"moderada","rom_range":"Usar el mayor rango de movimiento controlado y tolerado, sin dolor agudo ni compensación.","beginner_regression":"Curl sentado con carga ligera","advanced_progression":"Unilateral, pausa o mayor rango tolerado","setup_and_execution":"Alinear rodilla, fijar pelvis y flexionar llevando talones hacia glúteos; bajar lentamente.","key_cues":["pelvis estable","rango completo","sin rebote","control excéntrico"],"common_errors":["elevar pelvis","recortar extensión","tirar con impulso","rotar piernas"],"contraindications_or_cautions":"Ajustar rodillo y rango ante molestias de rodilla o tirón agudo.","hypertrophy_reps":"8-30","strength_reps":"6-15","power_reps":"No prioritaria","default_rir_beginner":"3-4","default_rir_intermediate":"1-3","default_rir_advanced":"0-2","rest_seconds":"60-150","progression_rule":"Aumentar repeticiones con rango constante antes de subir carga.","failure_policy":"RIR 0 ocasional en máquina estable, deteniendo ante calambre o dolor.","source_tags":["ACSM2026","IUSCA2021","ROM2021"]}'::jsonb,
+    how_to = 'Alinear rodilla, fijar pelvis y flexionar llevando talones hacia glúteos; bajar lentamente.',
+    tips = 'pelvis estable
+rango completo
+sin rebote
+control excéntrico
+Evita: elevar pelvis
+Evita: recortar extensión
+Evita: tirar con impulso
+Evita: rotar piernas
+Precaución: Ajustar rodillo y rango ante molestias de rodilla o tirón agudo.
+Descanso: 60-150 s'
+where slug = 'leg-curl';
+
+update public.exercises
+set meta = '{"id":"ex_seated_calf_raise","name_es":"Elevación de talones sentado","name_en":"Seated calf raise","category":"fuerza","movement_pattern":"flexión plantar","primary_muscles":["sóleo","gastrocnemio"],"secondary_muscles":["intrínsecos del pie"],"equipment":["máquina","discos"],"skill_level":"principiante","stability_demand":"baja","closed_or_open_chain":"cadena cerrada","unilateral":false,"axial_loading":false,"technical_complexity":"baja","rom_range":"Usar el mayor rango de movimiento controlado y tolerado, sin dolor agudo ni compensación.","beginner_regression":"Elevación bilateral sin carga","advanced_progression":"Unilateral, pausa abajo/arriba o más carga","setup_and_execution":"Apoyar metatarsos, mantener rodillas flexionadas y realizar el máximo rango controlado sin rebote.","key_cues":["rango completo","pausa","rodillas estables","sin rebote"],"common_errors":["acortar bajada","rebotar","rotar pies","usar tobillos de forma asimétrica"],"contraindications_or_cautions":"No forzar dorsiflexión ante dolor agudo del tendón o pantorrilla.","hypertrophy_reps":"10-30","strength_reps":"8-20","power_reps":"No prioritaria","default_rir_beginner":"3-4","default_rir_intermediate":"1-3","default_rir_advanced":"0-2","rest_seconds":"60-150","progression_rule":"Aumentar repeticiones y pausa antes de subir carga.","failure_policy":"RIR 0 ocasional con máquina estable y rango conservado.","source_tags":["ACSM2026","IUSCA2021","ROM2021"]}'::jsonb,
+    how_to = 'Apoyar metatarsos, mantener rodillas flexionadas y realizar el máximo rango controlado sin rebote.',
+    tips = 'rango completo
+pausa
+rodillas estables
+sin rebote
+Evita: acortar bajada
+Evita: rebotar
+Evita: rotar pies
+Evita: usar tobillos de forma asimétrica
+Precaución: No forzar dorsiflexión ante dolor agudo del tendón o pantorrilla.
+Descanso: 60-150 s'
+where slug = 'seated-calf-raise';
+
+update public.exercises
+set meta = '{"id":"ex_pallof_press","name_es":"Pallof press","name_en":"Pallof press","category":"core","movement_pattern":"anti-rotación","primary_muscles":["oblicuos","transverso abdominal"],"secondary_muscles":["recto abdominal","glúteos","estabilizadores de cadera"],"equipment":["polea o banda"],"skill_level":"principiante","stability_demand":"moderada","closed_or_open_chain":"cadena abierta","unilateral":true,"axial_loading":false,"technical_complexity":"moderada","rom_range":"según control y tolerancia","beginner_regression":"Press isométrico con poca distancia","advanced_progression":"De pie, medio arrodillado o con más tensión","setup_and_execution":"Colocarse perpendicular a la resistencia, mantener pelvis y caja torácica alineadas, extender brazos sin rotar.","key_cues":["no rotar","respirar","pelvis estable","pausa"],"common_errors":["inclinarse","girar el tronco","aguantar respiración","usar demasiada tensión"],"contraindications_or_cautions":"Reducir tensión o rango si aparece dolor lumbar u hombro.","hypertrophy_reps":"No aplica","strength_reps":"8-15 por lado","power_reps":"3-8 repeticiones explosivas o 10-30 s según ejercicio","default_rir_beginner":"3-4","default_rir_intermediate":"2-3","default_rir_advanced":"1-3","rest_seconds":"45-120","progression_rule":"Aumentar tiempo, distancia o tensión manteniendo alineación.","failure_policy":"Detener por pérdida de posición, no por fallo absoluto.","source_tags":["ACSM2026","IUSCA2021"]}'::jsonb,
+    how_to = 'Colocarse perpendicular a la resistencia, mantener pelvis y caja torácica alineadas, extender brazos sin rotar.',
+    tips = 'no rotar
+respirar
+pelvis estable
+pausa
+Evita: inclinarse
+Evita: girar el tronco
+Evita: aguantar respiración
+Evita: usar demasiada tensión
+Precaución: Reducir tensión o rango si aparece dolor lumbar u hombro.
+Descanso: 45-120 s'
+where slug = 'pallof-press';
+
+update public.exercises
+set meta = '{"id":"ex_side_plank","name_es":"Plancha lateral","name_en":"Side plank","category":"core","movement_pattern":"anti-flexión lateral","primary_muscles":["oblicuos","cuadrado lumbar"],"secondary_muscles":["glúteo medio","deltoides","core"],"equipment":["peso corporal"],"skill_level":"principiante","stability_demand":"moderada","closed_or_open_chain":"cadena cerrada","unilateral":true,"axial_loading":false,"technical_complexity":"moderada","rom_range":"según control y tolerancia","beginner_regression":"Plancha lateral con rodillas","advanced_progression":"Palanca larga, abducción de pierna o carga","setup_and_execution":"Apoyar antebrazo, elevar pelvis y mantener cuerpo alineado respirando con control.","key_cues":["cadera alta","cuello neutro","respirar","hombro estable"],"common_errors":["hundir cadera","rotar tronco","encoger hombro","aguantar respiración"],"contraindications_or_cautions":"Usar rodillas apoyadas si el hombro o la cadera no toleran la versión completa.","hypertrophy_reps":"No aplica","strength_reps":"15-40 s por lado","power_reps":"3-8 repeticiones explosivas o 10-30 s según ejercicio","default_rir_beginner":"3-4","default_rir_intermediate":"2-3","default_rir_advanced":"1-3","rest_seconds":"45-120","progression_rule":"Aumentar tensión o dificultad antes que tiempos indefinidos.","failure_policy":"Finalizar al perder alineación.","source_tags":["ACSM2026","IUSCA2021"]}'::jsonb,
+    how_to = 'Apoyar antebrazo, elevar pelvis y mantener cuerpo alineado respirando con control.',
+    tips = 'cadera alta
+cuello neutro
+respirar
+hombro estable
+Evita: hundir cadera
+Evita: rotar tronco
+Evita: encoger hombro
+Evita: aguantar respiración
+Precaución: Usar rodillas apoyadas si el hombro o la cadera no toleran la versión completa.
+Descanso: 45-120 s'
+where slug = 'side-plank';
+
+update public.exercises
+set meta = '{"id":"ex_ab_wheel","name_es":"Rueda abdominal","name_en":"Ab wheel rollout","category":"core","movement_pattern":"anti-extensión","primary_muscles":["recto abdominal","transverso abdominal"],"secondary_muscles":["dorsal ancho","serrato","glúteos"],"equipment":["rueda abdominal"],"skill_level":"avanzado","stability_demand":"alta","closed_or_open_chain":"cadena cerrada","unilateral":"según control y tolerancia","axial_loading":false,"technical_complexity":"alta","rom_range":"No llegar al fallo; detener ante pérdida de posición.","beginner_regression":"Deslizamiento desde pared o con rango corto","advanced_progression":"Mayor rango, desde pies o pausa","setup_and_execution":"Crear retroversión pélvica y extender brazos sin colapsar lumbar; volver usando abdomen y cadera.","key_cues":["glúteos activos","costillas abajo","rango progresivo","sin rebote"],"common_errors":["hiperextender lumbar","avanzar demasiado","usar brazos sin tronco","rebotar"],"contraindications_or_cautions":"Progresar desde rodillas; no usar si no se controla la columna o aparece dolor lumbar.","hypertrophy_reps":"No aplica","strength_reps":"6-15","power_reps":"3-8 repeticiones explosivas o 10-30 s según ejercicio","default_rir_beginner":"5-10","default_rir_intermediate":"4","default_rir_advanced":"3","rest_seconds":"2-3","progression_rule":"90-180","failure_policy":"Aumentar distancia de forma gradual manteniendo pelvis y respiración.","source_tags":["ACSM2026","IUSCA2021"]}'::jsonb,
+    how_to = 'Crear retroversión pélvica y extender brazos sin colapsar lumbar; volver usando abdomen y cadera.',
+    tips = 'glúteos activos
+costillas abajo
+rango progresivo
+sin rebote
+Evita: hiperextender lumbar
+Evita: avanzar demasiado
+Evita: usar brazos sin tronco
+Evita: rebotar
+Precaución: Progresar desde rodillas; no usar si no se controla la columna o aparece dolor lumbar.
+Descanso: 2-3 s'
+where slug = 'ab-wheel';
+
+update public.exercises
+set meta = '{"id":"ex_farmer_carry","name_es":"Caminata del granjero","name_en":"Farmer carry","category":"acondicionamiento","movement_pattern":"transporte y estabilidad","primary_muscles":["trapecio","antebrazo","core"],"secondary_muscles":["glúteos","cuádriceps","pantorrilla"],"equipment":["mancuernas o kettlebells"],"skill_level":"principiante","stability_demand":"alta","closed_or_open_chain":"cadena cerrada","unilateral":false,"axial_loading":false,"technical_complexity":"moderada","rom_range":"según distancia y técnica","beginner_regression":"Carga ligera y distancia corta","advanced_progression":"Más carga, distancia, unilateral o maleta","setup_and_execution":"Caminar erguido con cargas a los lados, pasos controlados y respiración continua.","key_cues":["tronco alto","pasos cortos","agarre firme","sin inclinarse"],"common_errors":["encoger hombros","inclinarse","correr","aguantar respiración"],"contraindications_or_cautions":"Usar ruta despejada y carga que permita caminar con control.","hypertrophy_reps":"No aplica","strength_reps":"20-60 m","power_reps":"3-8 repeticiones explosivas o 10-30 s según ejercicio","default_rir_beginner":"3-4","default_rir_intermediate":"2-3","default_rir_advanced":"1-3","rest_seconds":"60-180","progression_rule":"Aumentar una variable cada vez: distancia, carga o tiempo.","failure_policy":"Finalizar cuando la postura o el agarre se deterioren.","source_tags":["ACSM2026","IUSCA2021"]}'::jsonb,
+    how_to = 'Caminar erguido con cargas a los lados, pasos controlados y respiración continua.',
+    tips = 'tronco alto
+pasos cortos
+agarre firme
+sin inclinarse
+Evita: encoger hombros
+Evita: inclinarse
+Evita: correr
+Evita: aguantar respiración
+Precaución: Usar ruta despejada y carga que permita caminar con control.
+Descanso: 60-180 s'
+where slug = 'farmer-carry';
