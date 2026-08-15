@@ -10,6 +10,11 @@ import {
   type FoodCategory,
   type FoodTemplate,
 } from "./foods";
+import {
+  buildCatalogPools,
+  catalogSeed,
+  type CatalogFood,
+} from "./catalog";
 
 export interface DietMeal {
   dayType: "training" | "rest";
@@ -88,11 +93,20 @@ interface Pool {
   fat: FoodTemplate[];
 }
 
-function buildPools(profile: UserProfile): Pool {
+function buildPools(profile: UserProfile, catalog?: CatalogFood[]): Pool {
+  if (catalog && catalog.length > 0) {
+    return buildCatalogPools(catalog, profile);
+  }
   const style = profile.diet_style ?? profile.dietary_prefs;
   const allergies = profile.allergies ?? [];
+  const disliked = (profile.foods_disliked ?? []).map((d) => d.toLowerCase().trim()).filter((d) => d);
   const poolFor = (cats: FoodCategory[]): FoodTemplate[] =>
-    FOODS.filter((f) => cats.includes(f.category) && allowed(f, style, allergies));
+    FOODS.filter(
+      (f) =>
+        cats.includes(f.category) &&
+        allowed(f, style, allergies) &&
+        !disliked.some((d) => f.name.toLowerCase().includes(d))
+    );
   const protein = poolFor(["animal_protein", "plant_protein", "legume", "dairy"]);
   const staple = poolFor(["grain", "starchy_vegetable"]);
   const produce = poolFor(["vegetable", "fruit"]);
@@ -135,15 +149,18 @@ function buildDay(
   targets: NutritionTargets,
   dayType: "training" | "rest",
   dailyBudget: number | null,
-  priceOverrides?: Record<string, number>
+  seed: number,
+  priceOverrides?: Record<string, number>,
+  catalog?: CatalogFood[]
 ): DietMeal[] {
   const carbFactor = dayType === "rest" ? 0.85 : 1;
-  const pool = buildPools(profile);
+  const pool = buildPools(profile, catalog);
   const priceOf = (f: FoodTemplate): number | null =>
-    priceOverrides?.[f.food_id] ?? null;
+    priceOverrides?.[f.food_id] ?? f.priceMXN ?? null;
 
   const mealTypes: MealType[] = ["breakfast", "lunch", "dinner", "snack"];
   const meals: MealBuild[] = [];
+  const daySeed = seed + (dayType === "rest" ? 5 : 0);
 
   mealTypes.forEach((mealType, i) => {
     const mealCal = targets.calories * CALORIE_SHARES[mealType] * carbFactor;
@@ -154,16 +171,19 @@ function buildDay(
     let produceFood: FoodTemplate;
     let fatFood: FoodTemplate | null = null;
 
+    const at = (arr: FoodTemplate[], idx: number): FoodTemplate =>
+      arr.length ? arr[((idx % arr.length) + arr.length) % arr.length] : arr[0];
+
     if (mealType === "snack") {
-      proteinFood = pool.protein[(i + 2) % pool.protein.length] ?? pool.protein[0];
-      produceFood = pool.produce[(i + 3) % pool.produce.length] ?? pool.produce[0];
-      stapleFood = pool.staple[i % pool.staple.length] ?? pool.staple[0];
+      proteinFood = at(pool.protein, i + 2 + daySeed * 3);
+      produceFood = at(pool.produce, i + 3 + daySeed);
+      stapleFood = at(pool.staple, i + 1 + daySeed * 2);
     } else {
-      proteinFood = pool.protein[(i + 1) % pool.protein.length] ?? pool.protein[0];
-      stapleFood = pool.staple[i % pool.staple.length] ?? pool.staple[0];
-      produceFood = pool.produce[(i + 2) % pool.produce.length] ?? pool.produce[0];
+      proteinFood = at(pool.protein, i + 1 + daySeed);
+      stapleFood = at(pool.staple, i + daySeed);
+      produceFood = at(pool.produce, i + 2 + daySeed);
       if (mealType === "lunch" || mealType === "dinner") {
-        fatFood = pool.fat[(i + 1) % pool.fat.length] ?? pool.fat[0];
+        fatFood = at(pool.fat, i + 1 + daySeed);
       }
     }
 
@@ -279,7 +299,7 @@ function buildDay(
 
 export function buildDietPlan(
   profile: UserProfile,
-  opts?: { priceOverrides?: Record<string, number> }
+  opts?: { priceOverrides?: Record<string, number>; catalog?: CatalogFood[] }
 ): DietPlanData {
   const targets = calculateTargets(profile);
 
@@ -290,8 +310,10 @@ export function buildDietPlan(
   const dailyBudget = weeklyBudget > 0 ? weeklyBudget / 7 : null;
   const budgetBands = budgetBandsMXN(weeklyBudget);
 
-  const training = buildDay(profile, targets, "training", dailyBudget, opts?.priceOverrides);
-  const rest = buildDay(profile, targets, "rest", dailyBudget, opts?.priceOverrides);
+  const seed = catalogSeed(profile);
+
+  const training = buildDay(profile, targets, "training", dailyBudget, seed, opts?.priceOverrides, opts?.catalog);
+  const rest = buildDay(profile, targets, "rest", dailyBudget, seed, opts?.priceOverrides, opts?.catalog);
 
   const meals: DietMeal[] = [...training, ...rest];
   const trainingTotals = training.reduce(

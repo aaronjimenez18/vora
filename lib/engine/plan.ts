@@ -1,6 +1,7 @@
 import type { CardioSpec, UserProfile } from "@/app/types";
 import { calculateTargets, type EnergyTargets } from "./energy";
 import { buildDietPlan, type DietPlanData } from "./diet";
+import type { CatalogFood } from "./catalog";
 import {
   DAY_NAMES,
   TEMPLATES,
@@ -38,7 +39,7 @@ export interface GeneratedPlan {
 
 export function buildFullPlan(
   profile: UserProfile,
-  opts?: { priceOverrides?: Record<string, number> }
+  opts?: { priceOverrides?: Record<string, number>; catalog?: CatalogFood[] }
 ): GeneratedPlan {
   const targets = calculateTargets(profile);
 
@@ -130,7 +131,7 @@ export function buildFullPlan(
 // Alias compatible: el motor ahora orquesta fuerza + running/cardio + dieta.
 export function buildPlan(
   profile: UserProfile,
-  opts?: { priceOverrides?: Record<string, number> }
+  opts?: { priceOverrides?: Record<string, number>; catalog?: CatalogFood[] }
 ): GeneratedPlan {
   return buildFullPlan(profile, opts);
 }

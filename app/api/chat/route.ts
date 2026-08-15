@@ -20,6 +20,8 @@ interface ToolArgs {
 
 const MODEL = process.env.GEMINI_MODEL ?? "gemini-3.1-flash-lite";
 
+const WEB_SEARCH_ENABLED = process.env.GEMINI_WEB_SEARCH === "1";
+
 const TOOLS = [
   {
     functionDeclarations: [
@@ -67,6 +69,7 @@ const TOOLS = [
       },
     ],
   },
+  ...(WEB_SEARCH_ENABLED ? [{ google_search: {} }] : []),
 ];
 
 async function executeTool(
@@ -256,6 +259,11 @@ export async function POST(req: Request) {
     "Personalidad: cercano, directo, con humor seco, cero postureo. Hablas en español de México (compás, morro/a, chamaco/a) pero sin pasarte de confianza: siempre profesional. Usas frases cortas y fuertes, no párrafos académicos.",
     "Cómo trabajar:",
     "- Antes de responder sobre comida, entrenamiento, macros o progreso, CONSULTA los datos con las herramientas disponibles (search_foods, get_meal_logs, get_progress_history, get_active_plan). No inventes: si no consultaste, no afirmes.",
+    ...(WEB_SEARCH_ENABLED
+      ? [
+          "- Tienes acceso a Google Search (google_search): úsala para ideas de recetas, platos tradicionales, métodos de cocción, noticias de nutrición o lo que no esté en el catálogo local. Combínala con el catálogo y presupuesto del usuario.",
+        ]
+      : []),
     "- search_foods devuelve macros y precio por 100 g: calcula porciones reales y costos aproximados para armar sugerencias al presupuesto del usuario.",
     "- Para macros/calorías: compara con el contexto y lo registrado, y da un ajuste puntual y accionable.",
     "- Para progreso: interpreta la tendencia con calma (fluctuación de 1-2 kg por agua/glicógeno) y usa el % de grasa cuando exista.",

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { buildPlan } from "@/lib/engine";
+import { buildPlan, type CatalogFood } from "@/lib/engine";
 import { safetyScreen, type SafetyFlag, pickBestPrice, type PriceRecord } from "@/lib/engine/nutrition";
 import { FOODS } from "@/lib/engine/foods";
 import type { UserProfile } from "@/app/types";
@@ -80,7 +80,35 @@ export async function POST() {
     if (per100g != null) priceOverrides[f.food_id] = per100g;
   }
 
-  const plan = buildPlan(effectiveProfile, { priceOverrides });
+  // Catálogo BAM completo (alimentos reales con precios CDMX) para que el
+  // generador de dieta elija comidas variadas y personalizadas.
+  const { data: catalogRows } = await supabase
+    .from("foods")
+    .select("id, food_id, name, calories, protein_g, carbs_g, fat_g, fiber_g, category, allergens, price_records(*)")
+    .eq("source", "bam")
+    .limit(4000);
+
+  const today = new Date().toISOString().slice(0, 10);
+  const catalog: CatalogFood[] = [];
+  for (const row of catalogRows ?? []) {
+    const best = pickBestPrice(row.id, (row.price_records ?? []) as PriceRecord[], {
+      asOf: today,
+    });
+    catalog.push({
+      food_id: row.food_id,
+      name: row.name,
+      bamCategory: row.category,
+      calories: Number(row.calories) || 0,
+      protein: Number(row.protein_g) || 0,
+      carbs: Number(row.carbs_g) || 0,
+      fat: Number(row.fat_g) || 0,
+      fiber: Number(row.fiber_g) || 0,
+      allergens: Array.isArray(row.allergens) ? row.allergens : [],
+      pricePer100g: best?.pricePer100g ?? null,
+    });
+  }
+
+  const plan = buildPlan(effectiveProfile, { priceOverrides, catalog });
 
   if (plan.workoutDays.length > 7) {
     return NextResponse.json(
