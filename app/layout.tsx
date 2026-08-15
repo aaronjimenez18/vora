@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Newsreader, Inter, JetBrains_Mono } from "next/font/google";
+import PWARegister from "./components/PWARegister";
 import "./globals.css";
 
 const newsreader = Newsreader({
@@ -24,6 +25,12 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "Vora — Nutrición Arquitectónica",
   description: "Plataforma de alta precisión y diseño editorial para tu nutrición y rendimiento.",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Vora",
+  },
 };
 
 export const viewport: Viewport = {
@@ -55,6 +62,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           }}
         />
         {children}
+        <PWARegister />
       </body>
     </html>
   );

@@ -564,3 +564,181 @@ export async function applyDecision(id: string): Promise<void> {
   await updatePlannedExercise(planned.id, patch);
   await supabase.from("progression_decisions").update({ applied: true }).eq("id", id);
 }
+
+// ─── Analítica de entrenamiento ──────────────────────────────
+
+export interface WeeklyVolumePoint {
+  weekStart: string; // lunes YYYY-MM-DD
+  label: string;     // "dd MMM"
+  volume: number;    // kg totales (peso × reps)
+}
+
+function mondayOf(dateStr: string): string {
+  const d = new Date(`${dateStr}T00:00:00`);
+  const day = (d.getDay() + 6) % 7;
+  d.setDate(d.getDate() - day);
+  return d.toISOString().split("T")[0];
+}
+
+export async function fetchWeeklyVolume(userId: string, weeks = 8): Promise<WeeklyVolumePoint[]> {
+  const supabase = createClient();
+  const from = new Date();
+  from.setDate(from.getDate() - weeks * 7);
+  const { data } = await supabase
+    .from("workout_sessions")
+    .select("date, exercise_logs(weight_kg, reps)")
+    .eq("user_id", userId)
+    .gte("date", from.toISOString().split("T")[0])
+    .order("date", { ascending: true });
+
+  const byWeek = new Map<string, number>();
+  for (const s of (data ?? []) as { date: string; exercise_logs?: { weight_kg?: number | null; reps: number }[] }[]) {
+    if (!s.date) continue;
+    let vol = 0;
+    for (const l of s.exercise_logs ?? []) {
+      if (l.weight_kg != null && l.reps > 0) vol += l.weight_kg * l.reps;
+    }
+    const wk = mondayOf(s.date);
+    byWeek.set(wk, (byWeek.get(wk) ?? 0) + vol);
+  }
+
+  return [...byWeek.entries()]
+    .map(([weekStart, volume]) => {
+      const d = new Date(`${weekStart}T00:00:00`);
+      return {
+        weekStart,
+        label: d.toLocaleDateString("es-MX", { day: "numeric", month: "short" }),
+        volume: Math.round(volume),
+      };
+    })
+    .sort((a, b) => a.weekStart.localeCompare(b.weekStart));
+}
+
+export interface E1rmTrend {
+  exerciseId: string;
+  name: string;
+  points: { date: string; e1rm: number }[];
+}
+
+export async function fetchE1rmTrends(userId: string, top = 5): Promise<E1rmTrend[]> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("estimated_1rm")
+    .select("exercise_id, date, e1rm, exercises(id, name)")
+    .eq("user_id", userId)
+    .order("date", { ascending: true })
+    .order("created_at", { ascending: true });
+
+  const byExercise = new Map<string, E1rmTrend>();
+  for (const r of (data ?? []) as {
+    exercise_id?: string | null;
+    date: string;
+    e1rm: number;
+    exercises?: { id: string; name: string } | { id: string; name: string }[] | null;
+  }[]) {
+    const id = r.exercise_id;
+    const ex = Array.isArray(r.exercises) ? (r.exercises[0] ?? null) : r.exercises;
+    if (!id || !ex) continue;
+    const trend = byExercise.get(id) ?? {
+      exerciseId: id,
+      name: ex.name,
+      points: [],
+    };
+    trend.points.push({ date: r.date, e1rm: Math.round(r.e1rm) });
+    byExercise.set(id, trend);
+  }
+
+  return [...byExercise.values()]
+    .sort((a, b) => b.points.length - a.points.length)
+    .slice(0, top);
+}
+
+// ─── Hidratación ─────────────────────────────────────────────
+
+export async function fetchHydration(userId: string, date: string): Promise<number> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("hydration_logs")
+    .select("glasses")
+    .eq("user_id", userId)
+    .eq("date", date)
+    .maybeSingle();
+  return data?.glasses ?? 0;
+}
+
+export async function setHydration(userId: string, date: string, glasses: number): Promise<void> {
+  const { supabase, user } = await requireUser();
+  if (!user) throw new Error("Sin sesión");
+  await supabase.from("hydration_logs").upsert(
+    { user_id: userId, date, glasses },
+    { onConflict: "user_id,date" }
+  );
+}
+
+// ─── Fotos de progreso (storage privado + metadata) ──────────
+
+export interface ProgressPhoto {
+  id: string;
+  date: string;
+  note?: string | null;
+  signedUrl: string;
+}
+
+const PHOTOS_BUCKET = "progress-photos";
+const SIGN_URL_TTL = 60 * 60 * 24; // 24 h
+
+export async function uploadProgressPhoto(file: File): Promise<string | null> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+  const ext = (file.name.split(".").pop() ?? "jpg").replace(/[^a-zA-Z0-9]/g, "");
+  const path = `${user.id}/${crypto.randomUUID()}.${ext}`;
+  const { error } = await supabase.storage
+    .from(PHOTOS_BUCKET)
+    .upload(path, file, { upsert: false, contentType: file.type });
+  if (error) return null;
+  return path;
+}
+
+export async function addProgressPhoto(
+  userId: string,
+  date: string,
+  path: string,
+  note?: string
+): Promise<void> {
+  const { supabase, user } = await requireUser();
+  if (!user) throw new Error("Sin sesión");
+  await supabase.from("progress_photos").insert({ user_id: userId, date, url: path, note });
+}
+
+export async function fetchProgressPhotos(userId: string): Promise<ProgressPhoto[]> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("progress_photos")
+    .select("*")
+    .eq("user_id", userId)
+    .order("date", { ascending: false });
+  const rows = (data ?? []) as { id: string; date: string; url: string; note?: string | null }[];
+  const photos = await Promise.all(
+    rows.map(async (r) => {
+      const { data: signed } = await supabase.storage
+        .from(PHOTOS_BUCKET)
+        .createSignedUrl(r.url, SIGN_URL_TTL);
+      return { id: r.id, date: r.date, note: r.note ?? null, signedUrl: signed?.signedUrl ?? "" };
+    })
+  );
+  return photos.filter((p) => p.signedUrl);
+}
+
+export async function deleteProgressPhoto(id: string): Promise<void> {
+  const { supabase } = await requireUser();
+  const { data: row } = await supabase
+    .from("progress_photos")
+    .select("url")
+    .eq("id", id)
+    .single();
+  await supabase.from("progress_photos").delete().eq("id", id);
+  if (row?.url) await supabase.storage.from(PHOTOS_BUCKET).remove([row.url]);
+}

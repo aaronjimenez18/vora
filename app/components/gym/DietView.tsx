@@ -5,6 +5,7 @@ import { useApp } from "../../context/AppContext";
 import type { Food, MealLog, MealType } from "../../types";
 import {
   fetchActiveDiet,
+  fetchActiveWorkout,
   fetchMealLogs,
   fetchFoods,
   fetchPriceRecords,
@@ -21,23 +22,38 @@ const MEAL_LABELS: Record<MealType, string> = {
   dinner: "Cena",
   snack: "Snack",
 };
+const WEEKDAY_SHORT = ["L", "M", "X", "J", "V", "S", "D"];
+const WEEKDAY_FULL = [
+  "Lunes",
+  "Martes",
+  "Miércoles",
+  "Jueves",
+  "Viernes",
+  "Sábado",
+  "Domingo",
+];
 
 export default function DietView() {
   const { user, profile } = useApp();
   const [diet, setDiet] = useState<Awaited<ReturnType<typeof fetchActiveDiet>>>(null);
+  const [workout, setWorkout] = useState<Awaited<ReturnType<typeof fetchActiveWorkout>>>(null);
   const [logs, setLogs] = useState<MealLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [pickerOpen, setPickerOpen] = useState(false);
 
   const today = useMemo(() => new Date().toISOString().split("T")[0], []);
+  const todayWeekday = useMemo(() => (new Date().getDay() + 6) % 7, []);
+  const [selectedDay, setSelectedDay] = useState(todayWeekday);
 
   const load = useCallback(async () => {
     if (!user) return;
-    const [d, m] = await Promise.all([
+    const [d, w, m] = await Promise.all([
       fetchActiveDiet(user.id),
+      fetchActiveWorkout(user.id),
       fetchMealLogs(user.id, today),
     ]);
     setDiet(d);
+    setWorkout(w);
     setLogs(m);
     setLoading(false);
   }, [user, today]);
@@ -74,12 +90,27 @@ export default function DietView() {
   const weekly = plan?.weekly_budget ?? 0;
   const dailyBudget = weekly > 0 ? weekly / 7 : null;
   const spentToday = logs.reduce((s, m) => s + (m.cost_mxn ?? 0), 0);
-  const planMeals = useMemo(
+
+  const trainingByWeekday = useMemo(() => {
+    const map = new Array<boolean>(7).fill(false);
+    for (const d of workout?.days ?? []) {
+      if (d.day_of_week != null) map[d.day_of_week] = true;
+    }
+    return map;
+  }, [workout]);
+
+  const selectedMeals = useMemo(
     () =>
-      (diet?.meals ?? [])
-        .filter((m) => m.day_type === "training")
-        .sort((a, b) => MEAL_ORDER.indexOf(a.meal_type ?? "snack") - MEAL_ORDER.indexOf(b.meal_type ?? "snack")),
-    [diet]
+      (diet?.meals ?? []).filter((m) => {
+        const want = trainingByWeekday[selectedDay] ? "training" : "rest";
+        if (m.day_type === want) return true;
+        return !(diet?.meals ?? []).some((x) => x.day_type === want);
+      }),
+    [diet, trainingByWeekday, selectedDay]
+  );
+  const planMeals = useMemo(
+    () => selectedMeals.sort((a, b) => MEAL_ORDER.indexOf(a.meal_type ?? "snack") - MEAL_ORDER.indexOf(b.meal_type ?? "snack")),
+    [selectedMeals]
   );
   const pricesUnknown =
     planMeals.length > 0 && planMeals.every((m) => m.cost_mxn === null || m.cost_mxn === undefined);
@@ -188,6 +219,32 @@ export default function DietView() {
 
       <div className="flex flex-col gap-3">
         <SectionHeader kicker="comidas" title="comidas del plan" />
+        <div className="glass-floating p-2.5 sm:p-3 flex items-center gap-1">
+          {WEEKDAY_SHORT.map((label, i) => {
+            const isSel = selectedDay === i;
+            const isToday = i === todayWeekday;
+            return (
+              <button
+                key={i}
+                onClick={() => setSelectedDay(i)}
+                aria-pressed={isSel}
+                aria-label={WEEKDAY_FULL[i]}
+                title={WEEKDAY_FULL[i]}
+                className={`flex-1 py-2 rounded-full text-[10px] font-medium transition-all text-center truncate ${
+                  isSel
+                    ? "bg-[#a3e635] text-[#09090b] font-semibold"
+                    : "bg-white/[0.04] text-[#71717a] hover:text-[#f4f4f0]"
+                }`}
+              >
+                {isToday ? "Hoy" : label}
+              </button>
+            );
+          })}
+        </div>
+        <span className="label-caps block -mt-1">
+          {WEEKDAY_FULL[selectedDay]} ·{" "}
+          {trainingByWeekday[selectedDay] ? "día de entreno" : "día de descanso"}
+        </span>
         <div className="flex flex-col gap-3">
           {planMeals.map((meal) => {
             const logged = logs.some(

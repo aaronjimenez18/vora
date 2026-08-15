@@ -1,82 +1,5 @@
 // ─── Vora App Types ───────────────────────────────────────────
 
-export type MealCategory = "breakfast" | "lunch" | "dinner" | "snack";
-
-export interface Macros {
-  protein: number;   // grams
-  carbs: number;     // grams
-  fat: number;       // grams
-  fiber?: number;    // grams
-}
-
-export interface FoodItem {
-  id: string;
-  name: string;
-  brand?: string;
-  calories: number;
-  macros: Macros;
-  serving: number;   // grams
-  servingUnit: string;
-  emoji?: string;
-  category?: string;
-  image?: string;
-}
-
-export interface MealEntry {
-  id: string;
-  name: string;
-  category: MealCategory;
-  calories: number;
-  macros: Macros;
-  time: string;       // ISO string
-  image?: string;
-  foods?: FoodItem[];
-}
-
-export interface MacroGoal {
-  calories: number;
-  protein: number;
-  carbs: number;
-  fat: number;
-}
-
-export interface WaterLog {
-  date: string;       // YYYY-MM-DD
-  glasses: number;    // 250ml each
-  goal: number;
-}
-
-export interface WeightEntry {
-  date: string;
-  weight: number;     // kg
-}
-
-export interface AnalyticsDay {
-  date: string;
-  calories: number;
-  protein: number;
-  carbs: number;
-  fat: number;
-}
-
-export interface InventoryItem {
-  id: string;
-  name: string;
-  quantity: number;
-  unit: string;
-  expiresAt?: string;
-  category: string;
-  cost?: number;
-}
-
-export interface BudgetEntry {
-  id: string;
-  name: string;
-  amount: number;
-  category: string;
-  date: string;
-}
-
 export interface ChatMessage {
   id: string;
   role: "user" | "assistant";
@@ -369,22 +292,4 @@ export interface ProgressEntry {
   waist_cm?: number;
   arm_cm?: number;
   notes?: string;
-}
-
-export interface AppState {
-  // Today
-  meals: MealEntry[];
-  water: WaterLog;
-  goals: MacroGoal;
-  // History
-  analytics: AnalyticsDay[];
-  weights: WeightEntry[];
-  // Budget
-  inventory: InventoryItem[];
-  budgetEntries: BudgetEntry[];
-  budgetGoal: number;
-  // AI Coach
-  chatMessages: ChatMessage[];
-  // UI
-  activeTab: TabId;
 }

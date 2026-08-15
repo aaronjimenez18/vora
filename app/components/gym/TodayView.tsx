@@ -1,14 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useApp } from "../../context/AppContext";
 import type { MealLog, TabId, WorkoutDay } from "../../types";
 import {
   fetchActiveDiet,
   fetchActiveWorkout,
+  fetchHydration,
   fetchMealLogs,
   insertMealLog,
   deleteMealLog,
+  setHydration,
 } from "@/lib/supabase/gym";
 import { Ring, MacroBar, SectionHeader, Empty } from "./Shared";
 
@@ -17,6 +19,7 @@ export default function TodayView({ onNavigate }: { onNavigate: (tab: TabId) => 
   const [workout, setWorkout] = useState<{ plan: unknown; days: WorkoutDay[] } | null>(null);
   const [diet, setDiet] = useState<Awaited<ReturnType<typeof fetchActiveDiet>>>(null);
   const [logs, setLogs] = useState<MealLog[]>([]);
+  const [glasses, setGlasses] = useState(0);
   const [loading, setLoading] = useState(true);
   const [pickMeal, setPickMeal] = useState("");
 
@@ -27,16 +30,23 @@ export default function TodayView({ onNavigate }: { onNavigate: (tab: TabId) => 
     month: "long",
   });
 
+  const waterGoal = useMemo(() => {
+    if (!profile?.weight_kg) return 8;
+    return Math.max(6, Math.min(16, Math.round((profile.weight_kg * 35) / 250)));
+  }, [profile]);
+
   const load = useCallback(async () => {
     if (!user) return;
-    const [w, d, m] = await Promise.all([
+    const [w, d, m, h] = await Promise.all([
       fetchActiveWorkout(user.id),
       fetchActiveDiet(user.id),
       fetchMealLogs(user.id, new Date().toISOString().split("T")[0]),
+      fetchHydration(user.id, new Date().toISOString().split("T")[0]),
     ]);
     setWorkout(w);
     setDiet(d);
     setLogs(m);
+    setGlasses(h);
     setLoading(false);
   }, [user]);
 
@@ -127,6 +137,54 @@ export default function TodayView({ onNavigate }: { onNavigate: (tab: TabId) => 
           </span>
         </div>
       )}
+
+      {/* Hidratación */}
+      <div className="glass-floating p-4 sm:p-5 flex flex-col gap-3">
+        <div className="flex items-center justify-between gap-3">
+          <span className="label-caps">hidratación</span>
+          <span
+            className={`font-mono-num text-xs ${
+              glasses >= waterGoal ? "text-[#a3e635]" : "text-[#a1a1aa]"
+            }`}
+          >
+            {glasses >= waterGoal
+              ? "CUMPLIDA"
+              : `FALTAN ${waterGoal - glasses} ${waterGoal - glasses === 1 ? "VASO" : "VASOS"}`}
+          </span>
+        </div>
+        <div className="flex items-baseline gap-2">
+          <span className="font-serif-title text-2xl text-[#f4f4f0]">
+            {(glasses * 0.25).toLocaleString("es-MX", { maximumFractionDigits: 1 })} L
+          </span>
+          <span className="font-mono-num text-[10px] text-[#71717a]">
+            / {(waterGoal * 0.25).toLocaleString("es-MX", { maximumFractionDigits: 1 })} L
+          </span>
+        </div>
+        <div className="grid grid-cols-8 gap-1 sm:gap-1.5">
+          {Array.from({ length: Math.max(waterGoal, 8) }, (_, i) => {
+            const filled = i < glasses;
+            return (
+              <button
+                key={i}
+                aria-pressed={filled}
+                aria-label={`Vaso ${i + 1}`}
+                onClick={() => {
+                  const next = glasses === i + 1 ? i : i + 1;
+                  setGlasses(next);
+                  if (user) setHydration(user.id, today, next);
+                }}
+                className={`aspect-square rounded-full transition-all ${
+                  filled
+                    ? "bg-[#a3e635] text-[#09090b]"
+                    : "bg-white/[0.04] border border-white/[0.08] text-[#52525b]"
+                } flex items-center justify-center`}
+              >
+                <span className="material-symbols-outlined text-[14px]">water_drop</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
       {/* Entreno de hoy */}
       <div className="flex flex-col gap-3">

@@ -3,13 +3,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useApp } from "../../context/AppContext";
 import type { ChatMessage } from "../../types";
+import { SectionHeader } from "./Shared";
 import {
   fetchActiveDiet,
   fetchActiveWorkout,
   fetchMealLogs,
   fetchProgress,
 } from "@/lib/supabase/gym";
-import { SectionHeader } from "./Shared";
 
 const QUICK_ACTIONS = [
   { label: "¿Qué como hoy?", q: "¿Qué como hoy?" },
@@ -54,12 +54,17 @@ export default function CoachView() {
       }
 
       if (q.includes("qué como") || q.includes("que como") || q.includes("comida") || q.includes("cen") || q.includes("comer")) {
-        const diet = await fetchActiveDiet(user.id);
+        const [diet, workout] = await Promise.all([
+          fetchActiveDiet(user.id),
+          fetchActiveWorkout(user.id),
+        ]);
         if (!diet) return "No tienes un plan de dieta todavía. Escribe “Genera mi plan”.";
+        const weekday = (new Date().getDay() + 6) % 7;
+        const isTraining = (workout?.days ?? []).some((d) => d.day_of_week === weekday);
+        const want = isTraining ? "training" : "rest";
         const logs = await fetchMealLogs(user.id, today);
-        const unlogged = diet.meals
-          .filter((m) => m.day_type === "training")
-          .filter((m) => !logs.some((l) => l.custom_name === m.name));
+        const dayMeals = diet.meals.filter((m) => m.day_type === want);
+        const unlogged = dayMeals.filter((m) => !logs.some((l) => l.custom_name === m.name));
         if (unlogged.length === 0) return "Ya registraste todas las comidas del plan hoy. 👏";
         const next = unlogged[0];
         const costLabel = next.cost_mxn != null ? `$${next.cost_mxn} MXN` : "precio pendiente";
