@@ -19,15 +19,13 @@ function WeightChart({ entries }: { entries: ProgressEntry[] }) {
 
   if (weights.length < 2) {
     return (
-      <p className="text-xs text-[#71717a]">
-        Registra al menos 2 pesajes para ver la tendencia.
-      </p>
+      <p className="label-meta">registra al menos 2 pesajes para ver la tendencia.</p>
     );
   }
 
   const W = 320;
   const H = 120;
-  const pad = 10;
+  const pad = 12;
   const min = Math.min(...weights.map((w) => w.weight)) - 1;
   const max = Math.max(...weights.map((w) => w.weight)) + 1;
   const range = max - min || 1;
@@ -39,31 +37,41 @@ function WeightChart({ entries }: { entries: ProgressEntry[] }) {
   const last = weights[weights.length - 1];
   const diff = last.weight - first.weight;
 
+  // gradient fill under the line
+  const fillPath =
+    `M${x(0)},${H - pad} ` +
+    weights.map((w, i) => `L${x(i)},${y(w.weight)}`).join(" ") +
+    ` L${x(weights.length - 1)},${H - pad} Z`;
+
   return (
     <div>
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full">
-        <line x1={pad} y1={H - pad} x2={W - pad} y2={H - pad} stroke="rgba(255,255,255,0.08)" />
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full overflow-visible">
+        <defs>
+          <linearGradient id="weightGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#a3e635" stopOpacity="0.15" />
+            <stop offset="100%" stopColor="#a3e635" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <line x1={pad} y1={H - pad} x2={W - pad} y2={H - pad} stroke="rgba(255,255,255,0.05)" />
+        <path d={fillPath} fill="url(#weightGrad)" />
         <polyline
           points={points}
           fill="none"
           stroke="#a3e635"
-          strokeWidth="2"
+          strokeWidth="1.5"
           strokeLinecap="round"
           strokeLinejoin="round"
         />
         {weights.map((w, i) => (
-          <circle key={i} cx={x(i)} cy={y(w.weight)} r="2.5" fill="#a3e635" />
+          <circle key={i} cx={x(i)} cy={y(w.weight)} r="2" fill="#a3e635" />
         ))}
       </svg>
       <div className="flex items-center justify-between mt-2">
-        <span className="font-mono-num text-[10px] text-[#71717a]">{first.weight} kg</span>
-        <span
-          className={`font-mono-num text-xs ${diff <= 0 ? "text-[#a3e635]" : "text-[#f87171]"}`}
-        >
-          {diff > 0 ? "+" : ""}
-          {Math.round(diff * 100) / 100} kg
+        <span className="font-mono-num text-[10px] text-[#52525b]">{first.weight} kg</span>
+        <span className={`font-mono-num text-xs font-medium ${diff <= 0 ? "text-[#a3e635]" : "text-[#f87171]"}`}>
+          {diff > 0 ? "+" : ""}{Math.round(diff * 100) / 100} kg
         </span>
-        <span className="font-mono-num text-[10px] text-[#71717a]">{last.weight} kg</span>
+        <span className="font-mono-num text-[10px] text-[#52525b]">{last.weight} kg</span>
       </div>
     </div>
   );
@@ -75,32 +83,32 @@ function VolumeChart({
   volume: Awaited<ReturnType<typeof fetchWeeklyVolume>>;
 }) {
   if (volume.length < 2) {
-    return <p className="text-xs text-[#71717a]">Registra al menos 2 semanas de entrenos para ver volumen.</p>;
+    return <p className="label-meta">registra al menos 2 semanas de entrenos para ver volumen.</p>;
   }
 
   const W = 320;
   const H = 120;
-  const pad = 10;
+  const pad = 12;
   const max = Math.max(...volume.map((v) => v.volume));
   const barW = (W - pad * 2) / volume.length;
 
   return (
     <div>
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full">
-        <line x1={pad} y1={H - pad} x2={W - pad} y2={H - pad} stroke="rgba(255,255,255,0.08)" />
+        <line x1={pad} y1={H - pad} x2={W - pad} y2={H - pad} stroke="rgba(255,255,255,0.05)" />
         {volume.map((v, i) => {
           const h = max > 0 ? (v.volume / max) * (H - pad * 2) : 0;
-          const x = pad + i * barW;
+          const bx = pad + i * barW;
           return (
             <rect
               key={v.weekStart}
-              x={x + barW * 0.22}
+              x={bx + barW * 0.25}
               y={H - pad - h}
-              width={barW * 0.56}
+              width={barW * 0.5}
               height={h}
               rx="3"
               fill="#a3e635"
-              opacity="0.85"
+              opacity="0.7"
             >
               <title>{`${v.label}: ${v.volume.toLocaleString("es-MX")} kg`}</title>
             </rect>
@@ -108,13 +116,11 @@ function VolumeChart({
         })}
       </svg>
       <div className="flex justify-between mt-2">
-        <span className="font-mono-num text-[10px] text-[#71717a]">{volume[0].label}</span>
+        <span className="font-mono-num text-[10px] text-[#52525b]">{volume[0].label}</span>
         <span className="font-mono-num text-[10px] text-[#a3e635]">
           {volume[volume.length - 1].volume.toLocaleString("es-MX")} kg
         </span>
-        <span className="font-mono-num text-[10px] text-[#71717a]">
-          {volume[volume.length - 1].label}
-        </span>
+        <span className="font-mono-num text-[10px] text-[#52525b]">{volume[volume.length - 1].label}</span>
       </div>
     </div>
   );
@@ -122,12 +128,12 @@ function VolumeChart({
 
 function E1rmChart({ points }: { points: { date: string; e1rm: number }[] }) {
   if (points.length < 2) {
-    return <p className="text-xs text-[#71717a]">Necesitas 2+ sesiones para ver la tendencia.</p>;
+    return <p className="label-meta">necesitas 2+ sesiones para ver la tendencia.</p>;
   }
 
   const W = 320;
   const H = 120;
-  const pad = 10;
+  const pad = 12;
   const min = Math.min(...points.map((p) => p.e1rm)) - 1;
   const max = Math.max(...points.map((p) => p.e1rm)) + 1;
   const range = max - min || 1;
@@ -139,24 +145,35 @@ function E1rmChart({ points }: { points: { date: string; e1rm: number }[] }) {
   const last = points[points.length - 1];
   const diff = last.e1rm - first.e1rm;
 
+  const fillPath =
+    `M${x(0)},${H - pad} ` +
+    points.map((p, i) => `L${x(i)},${y(p.e1rm)}`).join(" ") +
+    ` L${x(points.length - 1)},${H - pad} Z`;
+
   return (
     <div>
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full">
-        <line x1={pad} y1={H - pad} x2={W - pad} y2={H - pad} stroke="rgba(255,255,255,0.08)" />
-        <polyline points={pts} fill="none" stroke="#a3e635" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full overflow-visible">
+        <defs>
+          <linearGradient id="e1rmGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#60a5fa" stopOpacity="0.15" />
+            <stop offset="100%" stopColor="#60a5fa" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <line x1={pad} y1={H - pad} x2={W - pad} y2={H - pad} stroke="rgba(255,255,255,0.05)" />
+        <path d={fillPath} fill="url(#e1rmGrad)" />
+        <polyline points={pts} fill="none" stroke="#60a5fa" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
         {points.map((p, i) => (
-          <circle key={i} cx={x(i)} cy={y(p.e1rm)} r="2.5" fill="#a3e635">
+          <circle key={i} cx={x(i)} cy={y(p.e1rm)} r="2" fill="#60a5fa">
             <title>{`${p.date}: ${p.e1rm} kg`}</title>
           </circle>
         ))}
       </svg>
       <div className="flex items-center justify-between mt-2">
-        <span className="font-mono-num text-[10px] text-[#71717a]">{first.date}</span>
-        <span className={`font-mono-num text-xs ${diff >= 0 ? "text-[#a3e635]" : "text-[#f87171]"}`}>
-          {diff > 0 ? "+" : ""}
-          {diff} kg
+        <span className="font-mono-num text-[10px] text-[#52525b]">{first.date}</span>
+        <span className={`font-mono-num text-xs font-medium ${diff >= 0 ? "text-[#a3e635]" : "text-[#f87171]"}`}>
+          {diff > 0 ? "+" : ""}{diff} kg
         </span>
-        <span className="font-mono-num text-[10px] text-[#71717a]">{last.date}</span>
+        <span className="font-mono-num text-[10px] text-[#52525b]">{last.date}</span>
       </div>
     </div>
   );
@@ -239,17 +256,83 @@ export default function ProgressView() {
 
   if (loading) {
     return (
-      <div className="flex flex-col gap-10 pb-24 animate-fade-in-up">
-        <span className="label-caps">progreso</span>
+      <div className="flex flex-col gap-8 pb-28 animate-fade-in-up">
+        <div className="flex flex-col gap-1">
+          <div className="h-3 w-16 rounded-full bg-white/[0.04] animate-pulse" />
+          <div className="h-7 w-28 rounded-full bg-white/[0.03] animate-pulse mt-1" />
+        </div>
         <div className="h-32 rounded-3xl bg-white/[0.02] animate-pulse" />
-      {/* Fotos de progreso */}
-      <div className="flex flex-col gap-3">
+        <div className="h-24 rounded-3xl bg-white/[0.015] animate-pulse" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-8 pb-28 animate-fade-in-up">
+
+      {/* ── Header ──────────────────────────────────────────── */}
+      <div className="flex flex-col gap-0.5 pt-1">
+        <span className="label-caps">body</span>
+        <h1 className="font-serif-italic text-2xl sm:text-3xl text-[#f4f4f0]">progreso</h1>
+      </div>
+
+      {/* ── Peso corporal ───────────────────────────────────── */}
+      <div className="flex flex-col gap-3 animate-fade-in-up stagger-1">
+        <SectionHeader kicker="body" title="peso corporal" />
+        <div className="glass-floating p-4 sm:p-5">
+          <WeightChart entries={entries} />
+        </div>
+      </div>
+
+      {/* ── Volumen semanal ─────────────────────────────────── */}
+      <div className="flex flex-col gap-3 animate-fade-in-up stagger-2">
+        <SectionHeader kicker="entreno" title="volumen semanal" />
+        <div className="glass-floating p-4 sm:p-5">
+          <VolumeChart volume={volume} />
+        </div>
+      </div>
+
+      {/* ── Tendencia e1RM ──────────────────────────────────── */}
+      <div className="flex flex-col gap-3 animate-fade-in-up stagger-3">
+        <SectionHeader kicker="fuerza" title="tendencia e1rm" />
+        {trends.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {trends.map((t) => {
+              const isSel = t.exerciseId === selectedEx;
+              return (
+                <button
+                  key={t.exerciseId}
+                  onClick={() => setSelectedEx(t.exerciseId)}
+                  aria-pressed={isSel}
+                  className={`text-[10px] px-3 py-1.5 rounded-full font-medium transition-all ${
+                    isSel
+                      ? "bg-[#60a5fa]/20 text-[#60a5fa] border border-[#60a5fa]/30"
+                      : "bg-white/[0.04] text-[#52525b] border border-white/[0.05] hover:text-[#a1a1aa]"
+                  }`}
+                >
+                  {t.name}
+                </button>
+              );
+            })}
+          </div>
+        )}
+        <div className="glass-floating p-4 sm:p-5">
+          {selectedTrend ? (
+            <E1rmChart points={selectedTrend.points} />
+          ) : (
+            <p className="label-meta">registra sesiones para calcular tu 1rm estimado.</p>
+          )}
+        </div>
+      </div>
+
+      {/* ── Fotos de progreso ───────────────────────────────── */}
+      <div className="flex flex-col gap-3 animate-fade-in-up stagger-3">
         <SectionHeader
           kicker="fotos"
           title="fotos de progreso"
           action={
-            <label className="btn-pill-secondary text-xs py-1.5 px-3 cursor-pointer disabled:opacity-50">
-              {uploading ? "Subiendo…" : "+ Foto"}
+            <label className="btn-pill-secondary text-[11px] py-1.5 px-3 cursor-pointer">
+              {uploading ? "subiendo…" : "+ foto"}
               <input
                 type="file"
                 accept="image/*"
@@ -265,7 +348,11 @@ export default function ProgressView() {
           }
         />
         {photos.length === 0 ? (
-          <Empty icon="photo_camera" title="Sin fotos todavía." hint="Tómate una foto mensual en las mismas condiciones para ver tu cambio real." />
+          <Empty
+            icon="photo_camera"
+            title="sin fotos todavía."
+            hint="tómate una foto mensual en las mismas condiciones para ver tu cambio real."
+          />
         ) : (
           <div className="grid grid-cols-3 gap-2">
             {photos.map((p) => (
@@ -273,7 +360,7 @@ export default function ProgressView() {
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={p.signedUrl}
-                  alt={`Progreso ${p.date}`}
+                  alt={`progreso ${p.date}`}
                   className="absolute inset-0 w-full h-full object-cover"
                   loading="lazy"
                 />
@@ -281,8 +368,8 @@ export default function ProgressView() {
                   <span className="font-mono-num text-[9px] text-[#f4f4f0]">{p.date}</span>
                   <button
                     onClick={() => handleDeletePhoto(p.id)}
-                    aria-label="Borrar foto"
-                    className="text-[#f4f4f0]/70 hover:text-[#f87171] transition-colors p-0.5"
+                    aria-label="borrar foto"
+                    className="text-[#f4f4f0]/60 hover:text-[#f87171] transition-colors p-0.5"
                   >
                     <span className="material-symbols-outlined text-[14px]">close</span>
                   </button>
@@ -292,62 +379,10 @@ export default function ProgressView() {
           </div>
         )}
       </div>
-    </div>
-  );
-}
 
-  return (
-    <div className="flex flex-col gap-8 pb-24 animate-fade-in-up">
-      <SectionHeader kicker="body" title="peso corporal" />
-
-      <div className="glass-floating p-5">
-        <WeightChart entries={entries} />
-      </div>
-
-      <div className="flex flex-col gap-3">
-        <SectionHeader kicker="entreno" title="volumen semanal" />
-        <div className="glass-floating p-5">
-          <VolumeChart volume={volume} />
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-3">
-        <SectionHeader kicker="fuerza" title="tendencia e1RM" />
-        {trends.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            {trends.map((t) => {
-              const isSel = t.exerciseId === selectedEx;
-              return (
-                <button
-                  key={t.exerciseId}
-                  onClick={() => setSelectedEx(t.exerciseId)}
-                  aria-pressed={isSel}
-                  className={`text-[11px] px-3 py-1.5 rounded-full font-medium transition-all ${
-                    isSel
-                      ? "bg-[#a3e635] text-[#09090b] font-semibold"
-                      : "bg-white/[0.04] text-[#a1a1aa] hover:text-[#f4f4f0]"
-                  }`}
-                >
-                  {t.name}
-                </button>
-              );
-            })}
-          </div>
-        )}
-        <div className="glass-floating p-5">
-          {selectedTrend ? (
-            <E1rmChart points={selectedTrend.points} />
-          ) : (
-            <p className="text-xs text-[#71717a]">
-              Registra sesiones para calcular tu 1RM estimado por ejercicio.
-            </p>
-          )}
-        </div>
-      </div>
-
-      {/* Nuevo registro */}
-      <form onSubmit={handleAdd} className="glass-floating p-5 flex flex-col gap-4">
-        <span className="label-caps">nuevo registro</span>
+      {/* ── Nuevo registro ──────────────────────────────────── */}
+      <form onSubmit={handleAdd} className="glass-floating p-4 sm:p-5 flex flex-col gap-4 animate-fade-in-up stagger-4">
+        <SectionHeader kicker="registro" title="añadir pesaje" />
         <input
           type="date"
           className="input-pill w-full text-xs"
@@ -383,39 +418,41 @@ export default function ProgressView() {
             onChange={(e) => setForm((f) => ({ ...f, waist_cm: e.target.value }))}
           />
         </div>
-        <button type="submit" disabled={!form.weight_kg || saving} className="btn-pill-primary w-full py-2.5 disabled:opacity-50">
-          {saving ? "Guardando…" : "Guardar registro"}
+        <button
+          type="submit"
+          disabled={!form.weight_kg || saving}
+          className="btn-pill-primary w-full py-3 text-sm"
+        >
+          {saving ? "guardando…" : "guardar registro"}
         </button>
       </form>
 
-      {/* Historial */}
+      {/* ── Historial ───────────────────────────────────────── */}
       {entries.length === 0 ? (
-        <Empty icon="monitor_weight" title="Sin registros todavía." hint="Pésate 2 veces por semana, en ayunas y después de ir al baño." />
+        <Empty
+          icon="monitor_weight"
+          title="sin registros todavía."
+          hint="pésate 2 veces por semana, en ayunas y después de ir al baño."
+        />
       ) : (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3 animate-fade-in-up stagger-4">
           <SectionHeader kicker="historial" title="registros" />
-          <div className="glass-floating divide-y divide-white/[0.06]">
+          <div className="glass-floating divide-y divide-white/[0.05] overflow-hidden">
             {entries
               .slice()
               .reverse()
               .map((e) => (
-                <div key={e.id} className="flex items-center justify-between py-3 px-5">
-                  <span className="text-xs text-[#a1a1aa]">{e.date}</span>
+                <div key={e.id} className="flex items-center justify-between py-3.5 px-4 sm:px-5">
+                  <span className="label-meta">{e.date}</span>
                   <div className="flex items-center gap-4">
                     {e.weight_kg != null && (
-                      <span className="font-mono-num text-xs text-[#f4f4f0]">
-                        {e.weight_kg} kg
-                      </span>
+                      <span className="font-mono-num text-xs text-[#f4f4f0]">{e.weight_kg} kg</span>
                     )}
                     {e.body_fat != null && (
-                      <span className="font-mono-num text-[10px] text-[#71717a]">
-                        {e.body_fat}%
-                      </span>
+                      <span className="font-mono-num text-[10px] text-[#52525b]">{e.body_fat}%</span>
                     )}
                     {e.waist_cm != null && (
-                      <span className="font-mono-num text-[10px] text-[#71717a]">
-                        {e.waist_cm} cm
-                      </span>
+                      <span className="font-mono-num text-[10px] text-[#52525b]">{e.waist_cm} cm</span>
                     )}
                   </div>
                 </div>

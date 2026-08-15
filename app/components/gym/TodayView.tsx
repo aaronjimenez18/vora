@@ -26,10 +26,12 @@ export default function TodayView({ onNavigate }: { onNavigate: (tab: TabId) => 
   const [cameraOpen, setCameraOpen] = useState(false);
 
   const today = new Date().toISOString().split("T")[0];
+
+  // Formato de fecha editorial: "viernes · 15 ago"
   const todayLabel = new Date().toLocaleDateString("es-MX", {
     weekday: "long",
     day: "numeric",
-    month: "long",
+    month: "short",
   });
 
   const waterGoal = useMemo(() => {
@@ -83,7 +85,7 @@ export default function TodayView({ onNavigate }: { onNavigate: (tab: TabId) => 
     await insertMealLog(user.id, {
       date: today,
       meal_type: meal.meal_type ?? "snack",
-      custom_name: meal.name ?? "Comida",
+      custom_name: meal.name ?? "comida",
       calories: meal.calories ?? 0,
       protein_g: meal.protein_g ?? 0,
       carbs_g: meal.carbs_g ?? 0,
@@ -101,28 +103,41 @@ export default function TodayView({ onNavigate }: { onNavigate: (tab: TabId) => 
 
   if (loading) {
     return (
-      <div className="flex flex-col gap-10 pb-24 animate-fade-in-up">
-        <span className="label-caps">{todayLabel}</span>
-        <div className="h-32 rounded-3xl bg-white/[0.02] animate-pulse" />
+      <div className="flex flex-col gap-8 pb-28 animate-fade-in-up">
+        {/* skeleton fecha */}
+        <div className="flex flex-col gap-1">
+          <div className="h-3 w-16 rounded-full bg-white/[0.04] animate-pulse" />
+          <div className="h-7 w-40 rounded-full bg-white/[0.03] animate-pulse mt-1" />
+        </div>
+        {/* skeleton card */}
+        <div className="h-44 rounded-3xl bg-white/[0.02] animate-pulse" />
+        <div className="h-24 rounded-3xl bg-white/[0.015] animate-pulse" />
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-10 pb-24 animate-fade-in-up">
-      <span className="label-caps">{todayLabel}</span>
+    <div className="flex flex-col gap-8 pb-28 animate-fade-in-up">
 
-      {/* Objetivos / macros */}
+      {/* ── Fecha — header editorial ─────────────────────────── */}
+      <div className="flex flex-col gap-0.5 pt-1">
+        <span className="label-caps">{new Date().getFullYear()}</span>
+        <h1 className="font-serif-italic text-2xl sm:text-3xl text-[#f4f4f0] leading-tight">
+          {todayLabel}
+        </h1>
+      </div>
+
+      {/* ── Objetivos / macros ───────────────────────────────── */}
       {plan ? (
-        <div className="glass-floating divide-y divide-white/[0.06]">
+        <div className="glass-floating divide-y divide-white/[0.05] animate-fade-in-up stagger-1">
           <Ring value={total.calories} goal={plan.calories ?? 0} label="kcal consumidas" />
           <MacroBar label="proteína" consumed={total.protein} goal={plan.protein_g ?? 0} />
           <MacroBar label="carbohidratos" consumed={total.carbs} goal={plan.carbs_g ?? 0} />
           <MacroBar label="grasas" consumed={total.fat} goal={plan.fat_g ?? 0} />
           {profile && (profile.weight_kg != null || profile.body_fat != null) && (
-            <div className="flex items-center justify-between px-4 sm:px-5 py-3">
+            <div className="flex items-center justify-between px-4 sm:px-6 py-3">
               <span className="label-caps">composición</span>
-              <span className="font-mono-num text-xs text-[#a1a1aa]">
+              <span className="font-mono-num text-[11px] text-[#52525b]">
                 {profile.weight_kg != null && `${profile.weight_kg} kg`}
                 {profile.weight_kg != null && profile.body_fat != null && " · "}
                 {profile.body_fat != null && `${profile.body_fat}% grasa`}
@@ -131,65 +146,76 @@ export default function TodayView({ onNavigate }: { onNavigate: (tab: TabId) => 
           )}
         </div>
       ) : (
-        <div className="glass-floating p-6">
-          <span className="text-xs text-[#a1a1aa]">
+        <div className="glass-floating p-6 animate-fade-in-up stagger-1">
+          <span className="label-meta">
             {profile?.mode === "manual"
-              ? "Modo libre activo: registra tus comidas y entrenos manualmente."
-              : "Todavía no tienes plan de dieta. Genéralo desde el onboarding o el coach."}
+              ? "modo libre activo — registra tus comidas y entrenos manualmente."
+              : "sin plan de dieta activo. genéralo desde el onboarding o el coach."}
           </span>
         </div>
       )}
 
-      {/* Hidratación */}
-      <div className="glass-floating p-4 sm:p-5 flex flex-col gap-3">
+      {/* ── Hidratación ─────────────────────────────────────── */}
+      <div className="glass-floating p-4 sm:p-5 flex flex-col gap-4 animate-fade-in-up stagger-2">
         <div className="flex items-center justify-between gap-3">
           <span className="label-caps">hidratación</span>
           <span
-            className={`font-mono-num text-xs ${
-              glasses >= waterGoal ? "text-[#a3e635]" : "text-[#a1a1aa]"
+            className={`font-mono-num text-[10px] tracking-wider ${
+              glasses >= waterGoal ? "verdict-on-track" : "text-[#52525b]"
             }`}
           >
             {glasses >= waterGoal
-              ? "CUMPLIDA"
-              : `FALTAN ${waterGoal - glasses} ${waterGoal - glasses === 1 ? "VASO" : "VASOS"}`}
+              ? "cumplida"
+              : `faltan ${waterGoal - glasses} ${waterGoal - glasses === 1 ? "vaso" : "vasos"}`}
           </span>
         </div>
-        <div className="flex items-baseline gap-2">
-          <span className="font-serif-title text-2xl text-[#f4f4f0]">
-            {(glasses * 0.25).toLocaleString("es-MX", { maximumFractionDigits: 1 })} L
+
+        <div className="flex items-baseline gap-1.5">
+          <span className="font-serif-title text-3xl text-[#f4f4f0]">
+            {(glasses * 0.25).toLocaleString("es-MX", { maximumFractionDigits: 1 })}
           </span>
-          <span className="font-mono-num text-[10px] text-[#71717a]">
-            / {(waterGoal * 0.25).toLocaleString("es-MX", { maximumFractionDigits: 1 })} L
+          <span className="font-mono-num text-[11px] text-[#3f3f46]">
+            / {(waterGoal * 0.25).toLocaleString("es-MX", { maximumFractionDigits: 1 })} l
           </span>
         </div>
-        <div className="grid grid-cols-8 gap-1 sm:gap-1.5">
+
+        {/* progress hairline */}
+        <div className="h-px bg-white/[0.05] rounded-full overflow-hidden -mt-1">
+          <div
+            className="h-full bg-[#60a5fa] transition-all duration-500"
+            style={{ width: `${Math.min(1, glasses / waterGoal) * 100}%`, opacity: 0.6 }}
+          />
+        </div>
+
+        {/* toggles */}
+        <div className="grid grid-cols-8 gap-1.5">
           {Array.from({ length: Math.max(waterGoal, 8) }, (_, i) => {
             const filled = i < glasses;
             return (
               <button
                 key={i}
                 aria-pressed={filled}
-                aria-label={`Vaso ${i + 1}`}
+                aria-label={`vaso ${i + 1}`}
                 onClick={() => {
                   const next = glasses === i + 1 ? i : i + 1;
                   setGlasses(next);
                   if (user) setHydration(user.id, today, next);
                 }}
-                className={`aspect-square rounded-full transition-all ${
+                className={`aspect-square rounded-xl transition-all duration-200 flex items-center justify-center ${
                   filled
-                    ? "bg-[#a3e635] text-[#09090b]"
-                    : "bg-white/[0.04] border border-white/[0.08] text-[#52525b]"
-                } flex items-center justify-center`}
+                    ? "bg-[#60a5fa]/20 border border-[#60a5fa]/40 text-[#60a5fa]"
+                    : "bg-white/[0.03] border border-white/[0.06] text-[#3f3f46] hover:border-white/[0.12]"
+                }`}
               >
-                <span className="material-symbols-outlined text-[14px]">water_drop</span>
+                <span className="material-symbols-outlined text-[13px]">water_drop</span>
               </button>
             );
           })}
         </div>
       </div>
 
-      {/* Entreno de hoy */}
-      <div className="flex flex-col gap-3">
+      {/* ── Entreno de hoy ──────────────────────────────────── */}
+      <div className="flex flex-col gap-3 animate-fade-in-up stagger-3">
         <SectionHeader
           kicker="rutina"
           title={todayDay ? "entreno de hoy" : "hoy es descanso"}
@@ -199,7 +225,7 @@ export default function TodayView({ onNavigate }: { onNavigate: (tab: TabId) => 
                 onClick={() => onNavigate("workout")}
                 className="btn-pill-primary text-xs py-2 px-4"
               >
-                Entrenar
+                entrenar
               </button>
             ) : undefined
           }
@@ -207,14 +233,16 @@ export default function TodayView({ onNavigate }: { onNavigate: (tab: TabId) => 
         {todayDay ? (
           <button
             onClick={() => onNavigate("workout")}
-            className="glass-floating p-5 flex items-center justify-between text-left hover:border-white/[0.15] transition-colors"
+            className="glass-floating p-5 flex items-center justify-between text-left group"
           >
-            <div>
-              <span className="block text-sm text-[#f4f4f0] font-medium">{todayDay.name}</span>
-              <span className="text-xs text-[#a1a1aa] mt-1 block">
+            <div className="min-w-0">
+              <span className="block text-sm text-[#f4f4f0] font-medium truncate">
+                {todayDay.name}
+              </span>
+              <span className="label-meta mt-1 block">
                 {todayDay.day_type === "running" || todayDay.day_type === "cardio" ? (
                   <>
-                    {todayDay.cardio_spec?.durationMin ?? 0} min · RPE {todayDay.cardio_spec?.rpe ?? 0}
+                    {todayDay.cardio_spec?.durationMin ?? 0} min · rpe {todayDay.cardio_spec?.rpe ?? 0}
                     {todayDay.cardio_spec?.notes ? ` · ${todayDay.cardio_spec.notes}` : ""}
                   </>
                 ) : (
@@ -222,46 +250,44 @@ export default function TodayView({ onNavigate }: { onNavigate: (tab: TabId) => 
                 )}
               </span>
             </div>
-            <span className="material-symbols-outlined text-[20px] text-[#a3e635]">
+            <span className="material-symbols-outlined text-[18px] text-[#a3e635] shrink-0 transition-transform group-hover:translate-x-0.5">
               arrow_forward_ios
             </span>
           </button>
         ) : (
-          <div className="glass-floating p-5 flex items-center gap-3">
-            <span className="material-symbols-outlined text-[20px] text-[#a1a1aa]">bedtime</span>
-            <span className="text-xs text-[#a1a1aa]">
-              Recuperación programada. Camina, estira o descansa.
-            </span>
+          <div className="glass-card p-5 flex items-center gap-3">
+            <span className="material-symbols-outlined text-[20px] text-[#52525b]">bedtime</span>
+            <span className="label-meta">recuperación programada — camina, estira o descansa.</span>
           </div>
         )}
       </div>
 
-      {/* Comidas de hoy */}
-      <div className="flex flex-col gap-3">
+      {/* ── Comidas de hoy ──────────────────────────────────── */}
+      <div className="flex flex-col gap-3 animate-fade-in-up stagger-4">
         <SectionHeader
           kicker="comidas"
           title="comidas de hoy"
           action={
             <button
               onClick={() => setCameraOpen(true)}
-              className="btn-pill-primary text-xs py-1.5 px-3 flex items-center gap-1.5"
+              className="btn-pill-secondary text-xs py-2 px-3.5 flex items-center gap-1.5"
             >
               <span className="material-symbols-outlined text-[14px]">photo_camera</span>
-              Foto AI
+              foto
             </button>
           }
         />
 
         {logs.length === 0 ? (
-          <Empty icon="restaurant" title="Todavía no registras comidas hoy.">
+          <Empty icon="restaurant" title="todavía no registras comidas hoy.">
             {diet && (
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 mt-3 w-full max-w-full">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 mt-2 w-full max-w-full">
                 <select
                   value={pickMeal}
                   onChange={(e) => setPickMeal(e.target.value)}
                   className="input-pill flex-1 text-xs truncate max-w-full bg-[#18181b] min-w-0"
                 >
-                  <option value="">Elegir comida del plan…</option>
+                  <option value="">elegir comida del plan…</option>
                   {diet.meals
                     .filter((m) => m.day_type === (isTrainingDay ? "training" : "rest") || diet.meals.every(x => x.day_type !== (isTrainingDay ? "training" : "rest")))
                     .map((m) => (
@@ -275,30 +301,35 @@ export default function TodayView({ onNavigate }: { onNavigate: (tab: TabId) => 
                   disabled={!pickMeal}
                   className="btn-pill-primary text-xs py-2.5 px-4 shrink-0 w-full sm:w-auto"
                 >
-                  Añadir
+                  añadir
                 </button>
               </div>
             )}
           </Empty>
         ) : (
           <>
-            <div className="glass-floating divide-y divide-white/[0.06] overflow-hidden">
-              {logs.map((m) => (
-                <div key={m.id} className="flex items-center justify-between gap-3 py-3.5 px-4 sm:px-5">
+            <div className="glass-floating divide-y divide-white/[0.05] overflow-hidden">
+              {logs.map((m, idx) => (
+                <div
+                  key={m.id}
+                  className={`flex items-center justify-between gap-3 py-3.5 px-4 sm:px-5 animate-fade-in-up stagger-${Math.min(idx + 1, 5)}`}
+                >
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-xs text-[#f4f4f0] truncate">{m.custom_name}</span>
-                      <span className="label-caps !text-[8px] shrink-0">{m.meal_type}</span>
+                      <span className="label-caps !text-[8px] shrink-0 px-1.5 py-0.5 rounded-full bg-white/[0.05]">
+                        {m.meal_type}
+                      </span>
                     </div>
-                    <span className="font-mono-num text-[10px] text-[#52525b] block truncate mt-0.5">
-                      P{m.protein_g ?? 0} · C{m.carbs_g ?? 0} · F{m.fat_g ?? 0}
+                    <span className="font-mono-num text-[10px] text-[#3f3f46] block truncate mt-0.5">
+                      p{m.protein_g ?? 0} · c{m.carbs_g ?? 0} · f{m.fat_g ?? 0}
                     </span>
                     {(m.micros?.length ?? 0) > 0 && (
                       <div className="flex flex-wrap gap-1 mt-1.5">
                         {m.micros!.slice(0, 3).map((micro) => (
                           <span
                             key={micro}
-                            className="text-[9px] text-[#a1a1aa] px-1.5 py-0.5 rounded-full bg-white/[0.05]"
+                            className="text-[9px] text-[#52525b] px-1.5 py-0.5 rounded-full bg-white/[0.04]"
                           >
                             {micro}
                           </span>
@@ -310,9 +341,9 @@ export default function TodayView({ onNavigate }: { onNavigate: (tab: TabId) => 
                     <span className="font-mono-num text-xs text-[#f4f4f0]">{m.calories} kcal</span>
                     <button
                       onClick={() => handleDelete(m.id)}
-                      className="text-[#52525b] hover:text-[#f87171] transition-colors p-1"
+                      className="text-[#3f3f46] hover:text-[#f87171] transition-colors p-1 rounded-full hover:bg-[#f87171]/10"
                     >
-                      <span className="material-symbols-outlined text-[16px]">close</span>
+                      <span className="material-symbols-outlined text-[15px]">close</span>
                     </button>
                   </div>
                 </div>
@@ -326,7 +357,7 @@ export default function TodayView({ onNavigate }: { onNavigate: (tab: TabId) => 
                   onChange={(e) => setPickMeal(e.target.value)}
                   className="input-pill flex-1 text-xs truncate max-w-full bg-[#18181b] min-w-0"
                 >
-                  <option value="">Registrar comida del plan…</option>
+                  <option value="">registrar comida del plan…</option>
                   {diet.meals
                     .filter((m) => m.day_type === (isTrainingDay ? "training" : "rest") || diet.meals.every(x => x.day_type !== (isTrainingDay ? "training" : "rest")))
                     .map((m) => (
@@ -340,7 +371,7 @@ export default function TodayView({ onNavigate }: { onNavigate: (tab: TabId) => 
                   disabled={!pickMeal}
                   className="btn-pill-primary text-xs py-2.5 px-4 shrink-0 w-full sm:w-auto"
                 >
-                  Añadir
+                  añadir
                 </button>
               </div>
             )}

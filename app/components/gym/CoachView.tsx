@@ -12,10 +12,10 @@ import {
 } from "@/lib/supabase/gym";
 
 const QUICK_ACTIONS = [
-  { label: "¿Qué como hoy?", q: "¿Qué como hoy?" },
-  { label: "¿Cómo llevo mis macros?", q: "¿Cómo llevo mis macros?" },
-  { label: "¿Qué entreno hoy?", q: "¿Qué entreno hoy?" },
-  { label: "Generar mi plan", q: "Genera mi plan" },
+  { label: "¿qué como hoy?",       q: "¿Qué como hoy?" },
+  { label: "¿cómo llevo mis macros?", q: "¿Cómo llevo mis macros?" },
+  { label: "¿qué entreno hoy?",    q: "¿Qué entreno hoy?" },
+  { label: "generar mi plan",      q: "Genera mi plan" },
 ];
 
 export default function CoachView() {
@@ -33,24 +33,24 @@ export default function CoachView() {
 
   const keywordReply = useCallback(
     async (question: string): Promise<string> => {
-      if (!user) return "No tengo sesión activa.";
+      if (!user) return "no tengo sesión activa.";
       const q = question.toLowerCase();
 
       if (q.includes("genera") || q.includes("regenera") || q.includes("mi plan")) {
         const res = await fetch("/api/plan/generate", { method: "POST" });
         if (res.ok) {
           const j = await res.json();
-          const runningLine = j.runningDays > 0 ? `• Running/cardio: ${j.runningDays} días\n` : "";
+          const runningLine = j.runningDays > 0 ? `• running/cardio: ${j.runningDays} días\n` : "";
           return (
-            `Plan generado ✅\n` +
-            `• Rutina: ${j.strengthDays} días (${j.splitName ?? ""})\n` +
+            `plan generado ✅\n` +
+            `• rutina: ${j.strengthDays} días (${j.splitName ?? ""})\n` +
             runningLine +
-            `• Dieta: ${j.dietCalories} kcal/día\n` +
-            `• Presupuesto: $${j.weeklyBudget} MXN/semana\n\n` +
+            `• dieta: ${j.dietCalories} kcal/día\n` +
+            `• presupuesto: $${j.weeklyBudget} mxn/semana\n\n` +
             (j.rationale?.join("\n") ?? "")
           );
         }
-        return "No pude generar el plan. Revisa que tu perfil esté completo.";
+        return "no pude generar el plan. revisa que tu perfil esté completo.";
       }
 
       if (q.includes("qué como") || q.includes("que como") || q.includes("comida") || q.includes("cen") || q.includes("comer")) {
@@ -58,63 +58,63 @@ export default function CoachView() {
           fetchActiveDiet(user.id),
           fetchActiveWorkout(user.id),
         ]);
-        if (!diet) return "No tienes un plan de dieta todavía. Escribe “Genera mi plan”.";
+        if (!diet) return "no tienes un plan de dieta todavía. escribe «genera mi plan».";
         const weekday = (new Date().getDay() + 6) % 7;
         const isTraining = (workout?.days ?? []).some((d) => d.day_of_week === weekday);
         const want = isTraining ? "training" : "rest";
         const logs = await fetchMealLogs(user.id, today);
         const dayMeals = diet.meals.filter((m) => m.day_type === want);
         const unlogged = dayMeals.filter((m) => !logs.some((l) => l.custom_name === m.name));
-        if (unlogged.length === 0) return "Ya registraste todas las comidas del plan hoy. 👏";
+        if (unlogged.length === 0) return "ya registraste todas las comidas del plan hoy. 👏";
         const next = unlogged[0];
-        const costLabel = next.cost_mxn != null ? `$${next.cost_mxn} MXN` : "precio pendiente";
-        return `Te toca: **${next.name}** (${next.calories} kcal · ${costLabel})\n${next.recipe ?? ""}`;
+        const costLabel = next.cost_mxn != null ? `$${next.cost_mxn} mxn` : "precio pendiente";
+        return `te toca: **${next.name}** (${next.calories} kcal · ${costLabel})\n${next.recipe ?? ""}`;
       }
 
       if (q.includes("macro") || q.includes("calor") || q.includes("proteína") || q.includes("llevo")) {
         const diet = await fetchActiveDiet(user.id);
-        if (!diet) return "No tengo un plan de dieta para comparar. Escribe “Genera mi plan”.";
+        if (!diet) return "no tengo un plan de dieta para comparar. escribe «genera mi plan».";
         const logs = await fetchMealLogs(user.id, today);
         const kcal = logs.reduce((s, m) => s + (m.calories ?? 0), 0);
         const p = logs.reduce((s, m) => s + (m.protein_g ?? 0), 0);
         const c = logs.reduce((s, m) => s + (m.carbs_g ?? 0), 0);
         const f = logs.reduce((s, m) => s + (m.fat_g ?? 0), 0);
         return (
-          `Hoy llevas ${kcal}/${diet.plan.calories} kcal.\n` +
-          `• Proteína: ${Math.round(p)}/${diet.plan.protein_g}g\n` +
-          `• Carbos: ${Math.round(c)}/${diet.plan.carbs_g}g\n` +
-          `• Grasas: ${Math.round(f)}/${diet.plan.fat_g}g`
+          `hoy llevas ${kcal}/${diet.plan.calories} kcal.\n` +
+          `• proteína: ${Math.round(p)}/${diet.plan.protein_g}g\n` +
+          `• carbos: ${Math.round(c)}/${diet.plan.carbs_g}g\n` +
+          `• grasas: ${Math.round(f)}/${diet.plan.fat_g}g`
         );
       }
 
       if (q.includes("entreno") || q.includes("rutina") || q.includes("hoy")) {
         const workout = await fetchActiveWorkout(user.id);
         if (!workout || workout.days.length === 0)
-          return "No tienes un plan de entrenamiento. Escribe “Genera mi plan”.";
+          return "no tienes un plan de entrenamiento. escribe «genera mi plan».";
         const days = workout.days.map((d, i) => `${i + 1}. ${d.name} (${d.exercises?.length ?? 0} ejercicios)`).join("\n");
-        return `Tu rutina:\n${days}\n\nAbre la pestaña Rutina para registrar tu sesión.`;
+        return `tu rutina:\n${days}\n\nabre la pestaña rutina para registrar tu sesión.`;
       }
 
       if (q.includes("peso") || q.includes("progreso") || q.includes("baj") || q.includes("subi")) {
         const entries = await fetchProgress(user.id);
         if (entries.length === 0)
-          return "No tengo registros de peso. En la pestaña Progreso puedes agregar tu primer pesaje.";
+          return "no tengo registros de peso. en la pestaña progreso puedes agregar tu primer pesaje.";
         const first = entries[0];
         const last = entries[entries.length - 1];
         if (first.weight_kg != null && last.weight_kg != null) {
           const diff = last.weight_kg - first.weight_kg;
-          return `Tu peso fue de ${first.weight_kg} kg a ${last.weight_kg} kg (${diff > 0 ? "+" : ""}${Math.round(diff * 100) / 100} kg). ${diff <= 0 ? "Vas bien 👍" : "Revisa tu déficit si buscas perder grasa."}`;
+          return `tu peso fue de ${first.weight_kg} kg a ${last.weight_kg} kg (${diff > 0 ? "+" : ""}${Math.round(diff * 100) / 100} kg). ${diff <= 0 ? "vas bien 👍" : "revisa tu déficit si buscas perder grasa."}`;
         }
-        return "Tienes registros, pero sin peso corporal en ellos.";
+        return "tienes registros, pero sin peso corporal en ellos.";
       }
 
       return (
-        "Soy tu coach de reglas. Puedo ayudarte con:\n" +
-        "• ¿Qué como hoy?\n" +
-        "• ¿Cómo llevo mis macros?\n" +
-        "• ¿Qué entreno hoy?\n" +
-        "• Genera mi plan\n" +
-        "• ¿Cómo va mi peso?"
+        "soy tu coach de reglas. puedo ayudarte con:\n" +
+        "• ¿qué como hoy?\n" +
+        "• ¿cómo llevo mis macros?\n" +
+        "• ¿qué entreno hoy?\n" +
+        "• genera mi plan\n" +
+        "• ¿cómo va mi peso?"
       );
     },
     [user, today]
@@ -122,7 +122,7 @@ export default function CoachView() {
 
   const reply = useCallback(
     async (question: string): Promise<string> => {
-      if (!user) return "No tengo sesión activa.";
+      if (!user) return "no tengo sesión activa.";
       const q = question.toLowerCase();
       if (q.includes("genera") || q.includes("regenera") || q.includes("mi plan")) {
         return keywordReply(question);
@@ -166,23 +166,31 @@ export default function CoachView() {
 
   return (
     <div className="flex flex-col gap-6 pb-40 animate-fade-in-up">
-      <SectionHeader kicker="coach" title="tu coach" />
 
-      <div className="flex flex-col gap-3">
+      {/* ── Header ──────────────────────────────────────────── */}
+      <div className="flex flex-col gap-0.5 pt-1">
+        <span className="label-caps">coach</span>
+        <h1 className="font-serif-italic text-2xl sm:text-3xl text-[#f4f4f0]">tu coach</h1>
+      </div>
+
+      {/* ── Mensajes ────────────────────────────────────────── */}
+      <div className="flex flex-col gap-2.5">
         {messages.map((m) => (
           <div
             key={m.id}
-            className={`max-w-[85%] p-4 rounded-2xl text-xs leading-relaxed whitespace-pre-line ${
+            className={`max-w-[82%] px-4 py-3 rounded-2xl text-xs leading-relaxed whitespace-pre-line animate-fade-in-up ${
               m.role === "user"
-                ? "self-end bg-[#a3e635] text-[#09090b]"
-                : "self-start glass-floating text-[#f4f4f0]"
+                ? "self-end bg-[#a3e635] text-[#09090b] rounded-br-md"
+                : "self-start glass-floating text-[#f4f4f0] rounded-bl-md"
             }`}
           >
             {m.content}
           </div>
         ))}
+
+        {/* typing indicator */}
         {typing && (
-          <div className="self-start glass-floating px-4 py-3 flex items-center gap-1.5">
+          <div className="self-start glass-floating px-4 py-3 flex items-center gap-1.5 rounded-bl-md animate-fade-in">
             <span className="w-1.5 h-1.5 rounded-full bg-[#a3e635] animate-pulse" />
             <span className="w-1.5 h-1.5 rounded-full bg-[#a3e635] animate-pulse [animation-delay:150ms]" />
             <span className="w-1.5 h-1.5 rounded-full bg-[#a3e635] animate-pulse [animation-delay:300ms]" />
@@ -191,30 +199,43 @@ export default function CoachView() {
         <div ref={bottomRef} />
       </div>
 
+      {/* ── Quick actions ────────────────────────────────────── */}
       {messages.length === 0 && (
         <div className="flex flex-col gap-2">
-          <span className="label-caps mb-1">preguntas rápidas</span>
-          {QUICK_ACTIONS.map((a) => (
+          <span className="label-caps mb-0.5">preguntas rápidas</span>
+          {QUICK_ACTIONS.map((a, idx) => (
             <button
               key={a.q}
               onClick={() => send(a.q)}
-              className="glass-floating p-4 text-left text-xs text-[#a1a1aa] hover:text-[#f4f4f0] hover:border-white/[0.15] transition-colors"
+              className={`glass-floating p-4 text-left transition-all group animate-fade-in-up stagger-${idx + 1}`}
             >
-              {a.label}
+              <div className="flex items-center justify-between gap-2">
+                <span className="label-meta group-hover:text-[#f4f4f0] transition-colors">
+                  {a.label}
+                </span>
+                <span className="material-symbols-outlined text-[16px] text-[#3f3f46] group-hover:text-[#a3e635] transition-colors shrink-0">
+                  arrow_forward_ios
+                </span>
+              </div>
             </button>
           ))}
         </div>
       )}
 
+      {/* ── Input fijo ──────────────────────────────────────── */}
       <div className="fixed bottom-24 left-0 right-0 max-w-xl mx-auto px-4 flex gap-2">
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && send()}
-          placeholder="Pregúntale a tu coach…"
-          className="input-pill flex-1"
+          placeholder="pregunta a tu coach…"
+          className="input-pill flex-1 min-w-0"
         />
-        <button onClick={() => send()} disabled={typing} className="btn-pill-primary">
+        <button
+          onClick={() => send()}
+          disabled={typing || !input.trim()}
+          className="btn-pill-primary w-11 h-11 p-0 flex items-center justify-center shrink-0"
+        >
           <span className="material-symbols-outlined text-[18px]">arrow_upward</span>
         </button>
       </div>
