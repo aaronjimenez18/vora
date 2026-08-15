@@ -20,7 +20,7 @@ export interface DayTemplate {
   slots: ExerciseSlot[];
 }
 
-const DAY_NAMES: Record<DayTemplate["focus"], string> = {
+export const DAY_NAMES: Record<DayTemplate["focus"], string> = {
   push: "Empuje",
   pull: "Tirón",
   legs: "Pierna",
@@ -108,7 +108,7 @@ const PULL: DayTemplate = {
   ],
 };
 
-const TEMPLATES: Record<DayTemplate["focus"], DayTemplate> = {
+export const TEMPLATES: Record<DayTemplate["focus"], DayTemplate> = {
   push: PUSH,
   pull: PULL,
   legs: LOWER,
@@ -151,22 +151,35 @@ export function defaultVolume(experience: Experience, ex: ExerciseTemplate): Vol
   return volumeForExperience(experience, isCompoundExercise(ex));
 }
 
-// ─── Selección de split ───────────────────────────────────────
+// ─── Selección de split (presets compuestos) ─────────────────
 
-function pickSplit(
+export type SplitPreference = "auto" | "full_body" | "upper_lower" | "ppl" | "hybrid";
+
+export const SPLIT_NAMES: Record<SplitPreference, string> = {
+  auto: "Automático",
+  full_body: "Cuerpo completo",
+  upper_lower: "Torso / Pierna",
+  ppl: "Push / Pull / Pierna (PPL)",
+  hybrid: "Híbrido Torso/Pierna + PPL",
+};
+
+// Compone la secuencia de tipos de día según días, nivel y preferencia.
+// Permite rutinas híbridas: ej. 5 días = Push/Pull/Pierna + Torso/Pierna,
+// 4 días = Torso/Pierna + Push/Pull, 6 días = Torso/Pierna + PPL.
+export function composeStrengthSequence(
   days: number,
   experience: Experience,
   pref: string | undefined
 ): DayTemplate["focus"][] {
-  const p = pref ?? "auto";
+  const p = (pref as SplitPreference) ?? "auto";
 
   if (days <= 2) return Array.from({ length: days }, () => "full_body" as const);
 
   if (p === "full_body") return Array.from({ length: days }, () => "full_body" as const);
 
   if (days === 3) {
-    if (p === "ppl") return ["push", "pull", "legs"];
     if (p === "upper_lower") return ["upper", "lower", "full_body"];
+    if (p === "hybrid") return ["upper", "push", "lower"];
     return experience === "beginner"
       ? ["full_body", "full_body", "full_body"]
       : ["push", "pull", "legs"];
@@ -174,6 +187,7 @@ function pickSplit(
 
   if (days === 4) {
     if (p === "ppl") return ["push", "pull", "legs", "full_body"];
+    if (p === "hybrid") return ["upper", "lower", "push", "pull"];
     return ["upper", "lower", "upper", "lower"];
   }
 
@@ -182,9 +196,16 @@ function pickSplit(
     return ["push", "pull", "legs", "upper", "lower"];
   }
 
-  // 6+
-  if (p === "upper_lower") return ["upper", "lower", "push", "pull", "legs", "full_body"];
-  return ["push", "pull", "legs", "push", "pull", "legs"];
+  if (days === 6) {
+    if (p === "upper_lower") return ["upper", "lower", "push", "pull", "legs", "full_body"];
+    if (p === "hybrid") return ["upper", "lower", "push", "pull", "legs", "upper"];
+    return ["push", "pull", "legs", "push", "pull", "legs"];
+  }
+
+  // 7+
+  if (p === "upper_lower") return ["upper", "lower", "push", "pull", "legs", "upper", "lower"];
+  if (p === "hybrid") return ["push", "pull", "legs", "upper", "lower", "push", "pull"];
+  return ["push", "pull", "legs", "push", "pull", "legs", "full_body"];
 }
 
 // ─── Resolución de ejercicios ─────────────────────────────────
@@ -312,7 +333,7 @@ export function buildWorkoutDays(
 ): { focus: DayTemplate["focus"]; name: string; exercises: PlannedExercise[] }[] {
   const days = Math.min(profile.training_days, 7);
   const userTier = (profile.equipment as EquipmentTier) || "gym";
-  const focuses = pickSplit(days, profile.experience, profile.split_pref);
+  const focuses = composeStrengthSequence(days, profile.experience, profile.split_pref);
 
   return focuses.map((focus, i) => {
     const template = TEMPLATES[focus];

@@ -426,23 +426,40 @@ export default function WorkoutView() {
       {/* Lista de días */}
       {!selectedDay && (
         <div className="flex flex-col gap-3">
-          {workout.days.map((day) => (
-            <button
-              key={day.id}
-              onClick={() => selectDay(day)}
-              className="glass-floating p-5 flex items-center justify-between text-left hover:border-white/[0.15] transition-colors"
-            >
-              <div>
-                <span className="block text-sm text-[#f4f4f0] font-medium">{day.name}</span>
-                <span className="block text-xs text-[#a1a1aa] mt-1">
-                  {day.exercises?.length ?? 0} ejercicios
+          {workout.days.map((day) =>
+            day.day_type === "running" || day.day_type === "cardio" ? (
+              <div key={day.id} className="glass-floating p-5 flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <span className="block text-sm text-[#f4f4f0] font-medium">{day.name}</span>
+                  <span className="block text-xs text-[#a1a1aa] mt-1">
+                    {day.cardio_spec?.durationMin ?? 0} min · RPE {day.cardio_spec?.rpe ?? 0}
+                  </span>
+                  {day.cardio_spec?.notes && (
+                    <span className="block text-[11px] text-[#71717a] mt-1">{day.cardio_spec.notes}</span>
+                  )}
+                </div>
+                <span className="label-caps !text-[8px] shrink-0 text-[#a3e635]">
+                  {day.day_type === "running" ? "running" : "cardio"}
                 </span>
               </div>
-              <span className="material-symbols-outlined text-[20px] text-[#a3e635]">
-                chevron_right
-              </span>
-            </button>
-          ))}
+            ) : (
+              <button
+                key={day.id}
+                onClick={() => selectDay(day)}
+                className="glass-floating p-5 flex items-center justify-between text-left hover:border-white/[0.15] transition-colors"
+              >
+                <div>
+                  <span className="block text-sm text-[#f4f4f0] font-medium">{day.name}</span>
+                  <span className="block text-xs text-[#a1a1aa] mt-1">
+                    {day.exercises?.length ?? 0} ejercicios
+                  </span>
+                </div>
+                <span className="material-symbols-outlined text-[20px] text-[#a3e635]">
+                  chevron_right
+                </span>
+              </button>
+            )
+          )}
         </div>
       )}
 
@@ -460,6 +477,22 @@ export default function WorkoutView() {
             <span className="text-sm text-[#f4f4f0] font-medium">{selectedDay.name}</span>
           </div>
 
+          {selectedDay.day_type === "running" || selectedDay.day_type === "cardio" ? (
+            <div className="glass-floating p-5 flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <span className="label-caps !text-[8px] text-[#a3e635]">
+                  {selectedDay.day_type === "running" ? "running" : "cardio"}
+                </span>
+                <span className="font-mono-num text-xs text-[#f4f4f0]">
+                  {selectedDay.cardio_spec?.durationMin ?? 0} min · RPE {selectedDay.cardio_spec?.rpe ?? 0}
+                </span>
+              </div>
+              {selectedDay.cardio_spec?.notes && (
+                <p className="text-xs text-[#71717a] leading-relaxed">{selectedDay.cardio_spec.notes}</p>
+              )}
+            </div>
+          ) : (
+            <>
           {history.length > 0 && (
             <div className="glass-floating p-4">
               <span className="label-caps block mb-2">última sesión</span>
@@ -816,6 +849,8 @@ export default function WorkoutView() {
                   onClose={() => setSummary(null)}
                 />
               )}
+            </>
+          )}
             </>
           )}
         </div>

@@ -31,7 +31,7 @@ export default function CoachView() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, typing]);
 
-  const reply = useCallback(
+  const keywordReply = useCallback(
     async (question: string): Promise<string> => {
       if (!user) return "No tengo sesión activa.";
       const q = question.toLowerCase();
@@ -40,7 +40,15 @@ export default function CoachView() {
         const res = await fetch("/api/plan/generate", { method: "POST" });
         if (res.ok) {
           const j = await res.json();
-          return `Plan generado ✅\n• Rutina: ${j.workoutDays} días\n• Dieta: ${j.dietCalories} kcal/día\n• Presupuesto: $${j.weeklyBudget} MXN/semana`;
+          const runningLine = j.runningDays > 0 ? `• Running/cardio: ${j.runningDays} días\n` : "";
+          return (
+            `Plan generado ✅\n` +
+            `• Rutina: ${j.strengthDays} días (${j.splitName ?? ""})\n` +
+            runningLine +
+            `• Dieta: ${j.dietCalories} kcal/día\n` +
+            `• Presupuesto: $${j.weeklyBudget} MXN/semana\n\n` +
+            (j.rationale?.join("\n") ?? "")
+          );
         }
         return "No pude generar el plan. Revisa que tu perfil esté completo.";
       }
@@ -105,6 +113,33 @@ export default function CoachView() {
       );
     },
     [user, today]
+  );
+
+  const reply = useCallback(
+    async (question: string): Promise<string> => {
+      if (!user) return "No tengo sesión activa.";
+      const q = question.toLowerCase();
+      if (q.includes("genera") || q.includes("regenera") || q.includes("mi plan")) {
+        return keywordReply(question);
+      }
+      try {
+        const res = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            messages: [...messages, { role: "user", content: question }],
+          }),
+        });
+        const j = await res.json();
+        if (j && j.fallback !== true && typeof j.reply === "string" && j.reply.trim()) {
+          return j.reply;
+        }
+      } catch {
+        // sin conexión o error → reglas locales
+      }
+      return keywordReply(question);
+    },
+    [user, messages, keywordReply]
   );
 
   async function send(text?: string) {

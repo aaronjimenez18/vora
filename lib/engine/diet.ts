@@ -63,15 +63,16 @@ function clamp(n: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, n));
 }
 
-function macrosFor(food: FoodTemplate, grams: number) {
+function macrosFor(food: FoodTemplate, grams: number, priceOverride: number | null) {
   const k = grams / 100;
+  const pricePer100g = priceOverride ?? food.priceMXN;
   return {
     calories: Math.round(food.calories * k),
     protein: Math.round(food.protein * k * 10) / 10,
     carbs: Math.round(food.carbs * k * 10) / 10,
     fat: Math.round(food.fat * k * 10) / 10,
     fiber: Math.round(food.fiber * k * 10) / 10,
-    cost: food.priceMXN === null ? null : Math.round(food.priceMXN * k * 100) / 100,
+    cost: pricePer100g === null ? null : Math.round(pricePer100g * k * 100) / 100,
   };
 }
 
@@ -133,10 +134,13 @@ function buildDay(
   profile: UserProfile,
   targets: NutritionTargets,
   dayType: "training" | "rest",
-  dailyBudget: number | null
+  dailyBudget: number | null,
+  priceOverrides?: Record<string, number>
 ): DietMeal[] {
   const carbFactor = dayType === "rest" ? 0.85 : 1;
   const pool = buildPools(profile);
+  const priceOf = (f: FoodTemplate): number | null =>
+    priceOverrides?.[f.food_id] ?? null;
 
   const mealTypes: MealType[] = ["breakfast", "lunch", "dinner", "snack"];
   const meals: MealBuild[] = [];
@@ -166,13 +170,13 @@ function buildDay(
     const qtyVeggie = mealType === "snack" ? 0 : 100;
     const qtyFat = mealType === "snack" ? 10 : mealType === "lunch" || mealType === "dinner" ? 15 : 0;
 
-    const fixedV = macrosFor(produceFood, qtyVeggie);
-    const fixedFat = fatFood && qtyFat > 0 ? macrosFor(fatFood, qtyFat) : null;
+    const fixedV = macrosFor(produceFood, qtyVeggie, priceOf(produceFood));
+    const fixedFat = fatFood && qtyFat > 0 ? macrosFor(fatFood, qtyFat, priceOf(fatFood)) : null;
 
     let qtyProtein = roundTo((proteinGramTarget / proteinFood.protein) * 100, 10);
     qtyProtein = clamp(qtyProtein, 20, 400);
 
-    let fixedP = macrosFor(proteinFood, qtyProtein);
+    let fixedP = macrosFor(proteinFood, qtyProtein, priceOf(proteinFood));
     let carbCalBudget =
       mealCal -
       fixedP.calories -
@@ -182,7 +186,7 @@ function buildDay(
     qtyCarbs = clamp(qtyCarbs, 0, 500);
 
     const incidentalProtein =
-      macrosFor(stapleFood, qtyCarbs).protein +
+      macrosFor(stapleFood, qtyCarbs, priceOf(stapleFood)).protein +
       fixedV.protein +
       (fixedFat?.protein ?? 0);
     qtyProtein = roundTo(
@@ -191,7 +195,7 @@ function buildDay(
     );
     qtyProtein = clamp(qtyProtein, 20, 400);
 
-    fixedP = macrosFor(proteinFood, qtyProtein);
+    fixedP = macrosFor(proteinFood, qtyProtein, priceOf(proteinFood));
     carbCalBudget =
       mealCal -
       fixedP.calories -
@@ -200,7 +204,7 @@ function buildDay(
     qtyCarbs = roundTo((carbCalBudget / stapleFood.calories) * 100, 10);
     qtyCarbs = clamp(qtyCarbs, 0, 500);
 
-    const c = macrosFor(stapleFood, qtyCarbs);
+    const c = macrosFor(stapleFood, qtyCarbs, priceOf(stapleFood));
 
     const calorie = Math.round(
       fixedP.calories +
@@ -224,7 +228,8 @@ function buildDay(
       Math.round(
         (fixedP.fiber + c.fiber + fixedV.fiber + (fixedFat?.fiber ?? 0)) * 10
       ) / 10;
-    const cost = sumCost([fixedP.cost, c.cost, fixedV.cost, fixedFat?.cost ?? null]);
+    const fatCost = fatFood ? (fixedFat?.cost ?? null) : 0;
+    const cost = sumCost([fixedP.cost, c.cost, fixedV.cost, fatCost]);
 
     const parts = [
       mealType === "snack" ? "" : `${proteinFood.name} (${qtyProtein} g)`,
@@ -272,7 +277,10 @@ function buildDay(
   return meals.map((m) => ({ ...m, dayType }));
 }
 
-export function buildDietPlan(profile: UserProfile): DietPlanData {
+export function buildDietPlan(
+  profile: UserProfile,
+  opts?: { priceOverrides?: Record<string, number> }
+): DietPlanData {
   const targets = calculateTargets(profile);
 
   const weeklyBudget =
@@ -282,11 +290,11 @@ export function buildDietPlan(profile: UserProfile): DietPlanData {
   const dailyBudget = weeklyBudget > 0 ? weeklyBudget / 7 : null;
   const budgetBands = budgetBandsMXN(weeklyBudget);
 
-  const training = buildDay(profile, targets, "training", dailyBudget);
-  const rest = buildDay(profile, targets, "rest", dailyBudget);
+  const training = buildDay(profile, targets, "training", dailyBudget, opts?.priceOverrides);
+  const rest = buildDay(profile, targets, "rest", dailyBudget, opts?.priceOverrides);
 
   const meals: DietMeal[] = [...training, ...rest];
-  const trainingTotals = meals.reduce(
+  const trainingTotals = training.reduce(
     (acc, m) => ({
       calories: acc.calories + m.calories,
       protein: acc.protein + m.protein,

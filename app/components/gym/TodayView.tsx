@@ -47,9 +47,11 @@ export default function TodayView({ onNavigate }: { onNavigate: (tab: TabId) => 
 
   const plan = diet?.plan ?? null;
   const weekdayIndex = (new Date().getDay() + 6) % 7; // lunes = 0
-  const isTrainingDay =
-    profile && weekdayIndex < profile.training_days && (workout?.days.length ?? 0) > 0;
-  const todayDay = isTrainingDay ? workout!.days[weekdayIndex] : null;
+  const dayMap = new Map<number, WorkoutDay>(
+    (workout?.days ?? []).filter((d) => d.day_of_week != null).map((d) => [d.day_of_week!, d])
+  );
+  const todayDay = dayMap.get(weekdayIndex) ?? null;
+  const isTrainingDay = Boolean(todayDay);
 
   const total = logs.reduce(
     (acc, m) => ({
@@ -105,6 +107,16 @@ export default function TodayView({ onNavigate }: { onNavigate: (tab: TabId) => 
           <MacroBar label="proteína" consumed={total.protein} goal={plan.protein_g ?? 0} />
           <MacroBar label="carbohidratos" consumed={total.carbs} goal={plan.carbs_g ?? 0} />
           <MacroBar label="grasas" consumed={total.fat} goal={plan.fat_g ?? 0} />
+          {profile && (profile.weight_kg != null || profile.body_fat != null) && (
+            <div className="flex items-center justify-between px-4 sm:px-5 py-3">
+              <span className="label-caps">composición</span>
+              <span className="font-mono-num text-xs text-[#a1a1aa]">
+                {profile.weight_kg != null && `${profile.weight_kg} kg`}
+                {profile.weight_kg != null && profile.body_fat != null && " · "}
+                {profile.body_fat != null && `${profile.body_fat}% grasa`}
+              </span>
+            </div>
+          )}
         </div>
       ) : (
         <div className="glass-floating p-6">
@@ -140,7 +152,14 @@ export default function TodayView({ onNavigate }: { onNavigate: (tab: TabId) => 
             <div>
               <span className="block text-sm text-[#f4f4f0] font-medium">{todayDay.name}</span>
               <span className="text-xs text-[#a1a1aa] mt-1 block">
-                {todayDay.exercises?.length ?? 0} ejercicios
+                {todayDay.day_type === "running" || todayDay.day_type === "cardio" ? (
+                  <>
+                    {todayDay.cardio_spec?.durationMin ?? 0} min · RPE {todayDay.cardio_spec?.rpe ?? 0}
+                    {todayDay.cardio_spec?.notes ? ` · ${todayDay.cardio_spec.notes}` : ""}
+                  </>
+                ) : (
+                  `${todayDay.exercises?.length ?? 0} ejercicios`
+                )}
               </span>
             </div>
             <span className="material-symbols-outlined text-[20px] text-[#a3e635]">

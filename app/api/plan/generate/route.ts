@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { buildPlan } from "@/lib/engine";
-import { safetyScreen, type SafetyFlag } from "@/lib/engine/nutrition";
+import { safetyScreen, type SafetyFlag, pickBestPrice, type PriceRecord } from "@/lib/engine/nutrition";
+import { FOODS } from "@/lib/engine/foods";
 import type { UserProfile } from "@/app/types";
 
 export const dynamic = "force-dynamic";
@@ -31,6 +32,21 @@ export async function POST() {
     return NextResponse.json({ error: "Modo manual: no se generan planes" }, { status: 409 });
   }
 
+  // Progreso más reciente: peso y % grasa actualizados reemplazan al perfil
+  const { data: latestProgress } = await supabase
+    .from("progress")
+    .select("weight_kg, body_fat")
+    .eq("user_id", user.id)
+    .order("date", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const effectiveProfile: UserProfile = {
+    ...profile,
+    weight_kg: latestProgress?.weight_kg ?? profile.weight_kg,
+    body_fat: latestProgress?.body_fat ?? profile.body_fat,
+  };
+
   // Mapa slug → id del catálogo seed (si la migración 0002 se aplicó)
   const { data: exerciseRows } = await supabase
     .from("exercises")
@@ -41,7 +57,37 @@ export async function POST() {
     (exerciseRows ?? []).map((r: { id: string; slug: string }) => [r.slug, r.id])
   );
 
-  const plan = buildPlan(profile as UserProfile);
+  // Precios CDMX (capa BAM 18.1.1) por local_price_key → precio por 100 g
+  const bamKeys = FOODS.map((f) => f.bamPriceKey).filter((k) => k);
+  const { data: priceRows } = await supabase
+    .from("foods")
+    .select("id, food_id, local_price_key, price_records(*)")
+    .in("local_price_key", bamKeys);
+
+  const priceByKey = new Map<string, number>();
+  for (const row of priceRows ?? []) {
+    if (!row.local_price_key || priceByKey.has(row.local_price_key)) continue;
+    const records = (row.price_records ?? []) as PriceRecord[];
+    const best = pickBestPrice(row.id, records, {
+      asOf: new Date().toISOString().slice(0, 10),
+    });
+    if (best) priceByKey.set(row.local_price_key, best.pricePer100g);
+  }
+
+  const priceOverrides: Record<string, number> = {};
+  for (const f of FOODS) {
+    const per100g = priceByKey.get(f.bamPriceKey);
+    if (per100g != null) priceOverrides[f.food_id] = per100g;
+  }
+
+  const plan = buildPlan(effectiveProfile, { priceOverrides });
+
+  if (plan.workoutDays.length > 7) {
+    return NextResponse.json(
+      { error: "Demasiados días de actividad a la semana (máx. 7). Reduce días de fuerza o running." },
+      { status: 400 }
+    );
+  }
 
   const screening = safetyScreen(
     (Array.isArray(profile.health_flags) ? profile.health_flags : []) as SafetyFlag[]
@@ -83,8 +129,10 @@ export async function POST() {
       .insert({
         plan_id: wp.id,
         name: day.name,
-        focus: day.focus,
-        day_of_week: null,
+        focus: day.focus ?? null,
+        day_type: day.dayType,
+        cardio_spec: day.cardioSpec ?? null,
+        day_of_week: day.dayOfWeek,
         position: day.position,
         source: "generated",
       })
@@ -155,9 +203,18 @@ export async function POST() {
   return NextResponse.json({
     ok: true,
     targets: plan.targets,
+    splitType: plan.splitType,
+    splitName: plan.splitName,
     workoutDays: plan.workoutDays.length,
+    strengthDays: plan.workoutDays.filter((d) => d.dayType === "strength").length,
+    runningDays: plan.workoutDays.filter((d) => d.dayType !== "strength").length,
+    schedule: plan.schedule,
+    runningSummary: plan.runningSummary,
+    rationale: plan.rationale,
     dietCalories,
     weeklyBudget: plan.diet.weeklyBudget,
     screening,
+    weightUsed: effectiveProfile.weight_kg,
+    bodyFatUsed: effectiveProfile.body_fat ?? null,
   });
 }

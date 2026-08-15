@@ -22,6 +22,7 @@ interface FormState {
   equipment: string;
   injuries: string;
   split_pref: string;
+  running_level: string;
   occupation_activity: string;
   steps_per_day: string;
   running_days_per_week: string;
@@ -68,6 +69,7 @@ const INITIAL: FormState = {
   equipment: "",
   injuries: "",
   split_pref: "auto",
+  running_level: "first_time",
   occupation_activity: "",
   steps_per_day: "",
   running_days_per_week: "",
@@ -200,17 +202,23 @@ function NumberField({
   onChange,
   placeholder,
   suffix,
+  min,
+  max,
 }: {
   value: string;
   onChange: (v: string) => void;
   placeholder: string;
   suffix?: string;
+  min?: number;
+  max?: number;
 }) {
   return (
     <div className="flex items-center gap-2">
       <input
         type="number"
         inputMode="numeric"
+        min={min}
+        max={max}
         className="input-pill flex-1"
         placeholder={placeholder}
         value={value}
@@ -386,6 +394,12 @@ function OnboardingPage() {
       if (!user) throw new Error("Sin sesión");
 
       const activity = form.occupation_activity;
+      const rawRunningDays = form.running_days_per_week ? Number(form.running_days_per_week) : 0;
+      const runningDays = isNaN(rawRunningDays) ? 0 : Math.min(7, Math.max(0, Math.floor(rawRunningDays)));
+
+      const rawStrengthDays = form.training_days ? Number(form.training_days) : 0;
+      const strengthDays = isNaN(rawStrengthDays) ? 0 : Math.min(7, Math.max(0, Math.floor(rawStrengthDays)));
+
       const payload = {
         user_id: user.id,
         age: Number(form.age),
@@ -393,40 +407,44 @@ function OnboardingPage() {
         sex_for_equation: form.sex_for_equation || null,
         height_cm: Number(form.height_cm),
         weight_kg: Number(form.weight_kg),
+        body_fat: form.body_fat ? Math.max(3, Math.min(60, Number(form.body_fat))) : null,
         goal: form.goal as Goal,
         experience: form.experience as Experience,
-        training_days: Number(form.training_days),
-        training_minutes: Number(form.training_minutes),
+        training_days: Math.min(7, Math.max(1, Math.floor(Number(form.training_days) || 1))),
+        training_minutes: Math.min(180, Math.max(15, Math.floor(Number(form.training_minutes) || 60))),
         equipment: form.equipment,
         injuries: form.injuries.trim() || null,
         split_pref: form.split_pref,
+        running_level: (["first_time", "beginner", "intermediate", "advanced"].includes(form.running_level) ? form.running_level : "first_time") as "first_time" | "beginner" | "intermediate" | "advanced",
         occupation_activity: activity,
-        steps_per_day: form.steps_per_day ? Number(form.steps_per_day) : null,
-        running_days_per_week: form.running_days_per_week ? Number(form.running_days_per_week) : 0,
+        steps_per_day: form.steps_per_day ? Math.max(0, Math.floor(Number(form.steps_per_day))) : null,
+        strength_days_per_week: strengthDays,
+        running_days_per_week: runningDays,
+        average_session_minutes: form.training_minutes ? Math.min(600, Math.max(0, Math.floor(Number(form.training_minutes)))) : null,
         training_intensity: form.training_intensity || null,
-        cardio_minutes_per_week: form.cardio_minutes_per_week ? Number(form.cardio_minutes_per_week) : 0,
-        budget_amount_mxn: Number(form.budget_amount_mxn),
-        budget_period: form.budget_period,
+        cardio_minutes_per_week: form.cardio_minutes_per_week ? Math.max(0, Math.floor(Number(form.cardio_minutes_per_week))) : 0,
+        budget_amount_mxn: Math.max(0, Number(form.budget_amount_mxn) || 0),
+        budget_period: form.budget_period || null,
         budget_includes_supplements: form.budget_includes_supplements,
         budget_includes_eating_out: form.budget_includes_eating_out,
-        household_size: Number(form.household_size),
+        household_size: Math.min(20, Math.max(1, Math.floor(Number(form.household_size) || 1))),
         shared_foods: form.shared_foods,
         shopping_frequency: form.shopping_frequency || null,
         store_preferences: form.store_preferences.trim() || null,
-        diet_style: form.diet_style,
+        diet_style: form.diet_style || null,
         allergies: form.allergies,
         intolerances: parseList(form.intolerances.join(",")),
         religious_restrictions: form.religious_restrictions.trim() || null,
         foods_liked: parseList(form.foods_liked),
         foods_disliked: parseList(form.foods_disliked),
-        cooking_time_minutes: form.cooking_time_minutes ? Number(form.cooking_time_minutes) : null,
+        cooking_time_minutes: form.cooking_time_minutes ? Math.min(600, Math.max(0, Math.floor(Number(form.cooking_time_minutes)))) : null,
         kitchen_equipment: form.kitchen_equipment,
-        meals_per_day: form.meals_per_day ? Number(form.meals_per_day) : 3,
-        snacks_per_day: form.snacks_per_day ? Number(form.snacks_per_day) : 1,
+        meals_per_day: form.meals_per_day ? Math.min(8, Math.max(1, Math.floor(Number(form.meals_per_day)))) : 3,
+        snacks_per_day: form.snacks_per_day ? Math.min(6, Math.max(0, Math.floor(Number(form.snacks_per_day)))) : 1,
         health_flags: form.health_flags,
         output_preferences: form.output_preferences,
-        weekly_budget: Number(form.budget_amount_mxn),
-        dietary_prefs: form.diet_style,
+        weekly_budget: Math.max(0, Number(form.budget_amount_mxn) || 0),
+        dietary_prefs: form.diet_style || null,
         activity_level: activity,
         mode: form.mode,
         updated_at: new Date().toISOString(),
@@ -650,8 +668,29 @@ function OnboardingPage() {
             <div>
               <StepLabel text="running / cardio (opcional)" />
               <div className="flex flex-col gap-3">
-                <NumberField value={form.running_days_per_week} onChange={(v) => set("running_days_per_week", v)} placeholder="Días de running por semana" />
+                <NumberField value={form.running_days_per_week} onChange={(v) => set("running_days_per_week", v)} placeholder="Días de running por semana (0-7)" min={0} max={7} />
                 <NumberField value={form.cardio_minutes_per_week} onChange={(v) => set("cardio_minutes_per_week", v)} placeholder="Cardio total a la semana" suffix="min" />
+              </div>
+              <div className="mt-3">
+                <span className="label-caps mb-2 block">¿cómo estás corriendo hoy?</span>
+                <div className="flex flex-col gap-2">
+                  {(
+                    [
+                      { v: "first_time", l: "Primera vez", d: "Casi no corro, empiezo de cero." },
+                      { v: "beginner", l: "1-2 veces", d: "Corro sin ritmo definido, pocos km." },
+                      { v: "intermediate", l: "5-8 km", d: "Corro seguido y aguanto un rato." },
+                      { v: "advanced", l: "+10 km / con ritmo", d: "Entreno con ritmo y distancias largas." },
+                    ] as const
+                  ).map((o) => (
+                    <OptionCard
+                      key={o.v}
+                      active={form.running_level === o.v}
+                      label={o.l}
+                      desc={o.d}
+                      onClick={() => set("running_level", o.v)}
+                    />
+                  ))}
+                </div>
               </div>
             </div>
             <div>
@@ -680,8 +719,9 @@ function OnboardingPage() {
                 {(
                   [
                     { v: "auto", l: "Que decida el coach", d: "Recomiendo según tus días y nivel." },
-                    { v: "upper_lower", l: "Upper / Lower" },
-                    { v: "ppl", l: "Push / Pull / Legs" },
+                    { v: "upper_lower", l: "Torso / Pierna" },
+                    { v: "ppl", l: "Push / Pull / Pierna" },
+                    { v: "hybrid", l: "Híbrido: Torso/Pierna + PPL", d: "Un día torso, otro pierna, otro push, otro pull… combinado." },
                     { v: "full_body", l: "Cuerpo completo" },
                   ] as readonly { v: string; l: string; d?: string }[]
                 ).map((o) => (

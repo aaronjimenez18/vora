@@ -12,8 +12,14 @@ export type SexForEquation = "male" | "female";
 export type BudgetPeriod = "per_day" | "per_week" | "per_month";
 export type ShoppingFrequency = "daily" | "weekly" | "biweekly" | "monthly";
 export type DietStyle = "omnivore" | "vegetarian" | "vegan" | "pescatarian" | "other";
-export type PriceType = "retail" | "wholesale" | "promotional" | "user_entered" | "estimated";
-export type PriceConfidence = "high" | "medium" | "low";
+export type PriceType =
+  | "retail"
+  | "wholesale"
+  | "promotional"
+  | "user_entered"
+  | "estimated"
+  | "estimated_reference_range";
+export type PriceConfidence = "high" | "medium" | "low" | "low_to_medium";
 
 export interface EnergyTargets {
   calories: number;
@@ -26,6 +32,7 @@ export interface EnergyTargets {
   goalPct?: number;
   proteinPerKg?: number;
   adjustmentLabel?: string;
+  bmrMethod?: "katch_mcardle" | "harris_benedict";
 }
 
 export interface NutritionTargets extends EnergyTargets {
@@ -34,6 +41,7 @@ export interface NutritionTargets extends EnergyTargets {
   goalPct: number;
   proteinPerKg: number;
   adjustmentLabel: string;
+  bmrMethod: "katch_mcardle" | "harris_benedict";
 }
 
 export interface GoalAdjustment {
@@ -74,6 +82,12 @@ export interface PriceRecord {
   source?: string;
   price_type?: PriceType;
   confidence?: PriceConfidence;
+  price_record_id?: string;
+  price_mxn_low?: number;
+  price_mxn_high?: number;
+  price_mxn_reference?: number;
+  is_observed_item_price?: boolean;
+  needs_local_confirmation?: boolean;
 }
 
 export interface PriceEstimate {
@@ -212,7 +226,12 @@ export function calculateTargets(
   const height = Number(profile.height_cm);
   const age = profile.age;
 
-  const bmr = calculateBMR(profile.sex, weight, height, age);
+  const bodyFat = Number(profile.body_fat);
+  const usesKatchMcArdle =
+    Number.isFinite(bodyFat) && bodyFat >= 3 && bodyFat <= 60;
+  const bmr = usesKatchMcArdle
+    ? 370 + 21.6 * weight * (1 - bodyFat / 100)
+    : calculateBMR(profile.sex, weight, height, age);
   const activity = normalizeActivityLevel(profile.activity_level);
   const tdee = calculateTDEE(bmr, activity);
 
@@ -244,6 +263,7 @@ export function calculateTargets(
     goalPct,
     proteinPerKg: perKg,
     adjustmentLabel: adj.label,
+    bmrMethod: usesKatchMcArdle ? "katch_mcardle" : "harris_benedict",
   };
 }
 
@@ -374,6 +394,7 @@ export const PRICE_TYPES: PriceType[] = [
   "promotional",
   "user_entered",
   "estimated",
+  "estimated_reference_range",
 ];
 
 const PERIOD_TO_WEEK: Record<BudgetPeriod, number> = {
@@ -418,12 +439,21 @@ export function pricePer100gFromRecord(record: PriceRecord): number | null {
       return (price * 100) / record.package_size;
     }
   }
+  if (unit.includes("lata")) {
+    const drainedG = record.package_size && record.package_size > 1 ? record.package_size : 100;
+    return (price * 100) / drainedG;
+  }
+  if (unit === "l" || unit === "lt" || unit === "litro" || unit === "litros") {
+    const liters = record.package_size && record.package_size > 0 ? record.package_size : 1;
+    return (price * 100) / (liters * 1000);
+  }
   return null;
 }
 
 const CONFIDENCE_ORDER: Record<PriceConfidence, number> = {
   high: 0,
   medium: 1,
+  low_to_medium: 1.5,
   low: 2,
 };
 

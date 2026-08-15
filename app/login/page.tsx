@@ -49,11 +49,20 @@ export default function LoginPage() {
         router.refresh();
       }
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Algo salió mal. Inténtalo de nuevo."
-      );
+      let message = "Algo salió mal. Inténtalo de nuevo.";
+      if (err instanceof Error) {
+        const raw = err.message.toLowerCase();
+        if (raw.includes("rate limit")) {
+          message = "Límite de correos superado (Supabase). Desactiva 'Confirm email' en el Dashboard de Supabase para pruebas o espera 1 hora.";
+        } else if (raw.includes("already registered")) {
+          message = "Este correo ya está registrado. Intenta iniciar sesión.";
+        } else if (raw.includes("invalid login credentials")) {
+          message = "Correo o contraseña incorrectos.";
+        } else {
+          message = err.message;
+        }
+      }
+      setError(message);
     } finally {
       setLoading(false);
     }

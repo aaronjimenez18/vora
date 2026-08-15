@@ -129,7 +129,7 @@ function priceValues(f) {
     num(r.package_size),
     sqlStr(r.store_or_market ?? "rango general; SNIIM y minoristas"),
     sqlStr(r.city_or_region ?? "Ciudad de México y área metropolitana"),
-    sqlStr(r.observed_at ?? "2026-08-14"),
+    `${sqlStr(r.observed_at ?? "2026-08-14")}::date`,
     sqlStr(r.source ?? "SNIIM/Profeco/supermercado CDMX: rango orientativo de referencia; confirmar por tienda y fecha"),
     sqlStr(r.price_type ?? "estimated_reference_range"),
     sqlStr(r.confidence ?? "low_to_medium"),
@@ -149,8 +149,9 @@ L.push("-- Fuente: catalog-prices.db — Base de Alimentos de México (BAM)");
 L.push("-- 18.1.1, INSP/INCMNSZ 2019. Capa de precios: rangos de referencia");
 L.push("-- estimados CDMX al 2026-08-14 (SNIIM/Profeco/minoristas).");
 L.push("-- Política de precios: el precio vive en price_records (fechado por");
-L.push("-- ciudad/tienda/presentación); foods.price_mxn queda null. Additivo,");
-L.push("-- idempotente y compatible con 0001/0005 (funciona con o sin ellos).");
+L.push("-- ciudad/tienda/presentación); foods.price_mxn queda null. Additivo e");
+L.push("-- idempotente. Requiere 0001 (public.foods) y 0005 (public.price_records,");
+L.push("-- columnas de nutrición); puede reejecutarse sin duplicar datos.");
 L.push("-- ─────────────────────────────────────────────────────────────");
 L.push("");
 

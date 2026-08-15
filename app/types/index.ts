@@ -102,6 +102,7 @@ export interface UserProfile {
   sex: Sex;
   height_cm: number;
   weight_kg: number;
+  body_fat?: number;
   goal: Goal;
   experience: Experience;
   training_days: number;
@@ -109,6 +110,7 @@ export interface UserProfile {
   equipment: string;
   injuries?: string;
   split_pref?: string;
+  running_level?: "first_time" | "beginner" | "intermediate" | "advanced";
   weekly_budget: number;
   dietary_prefs?: string;
   activity_level?: string;
@@ -179,11 +181,31 @@ export interface PlannedExercise {
   position?: number;
 }
 
+export type WorkoutDayType = "strength" | "running" | "cardio";
+
+export type CardioMode =
+  | "recovery"
+  | "easy"
+  | "long"
+  | "tempo"
+  | "interval"
+  | "steady"
+  | "hiit";
+
+export interface CardioSpec {
+  mode: CardioMode;
+  durationMin: number;
+  rpe: number;
+  notes?: string;
+}
+
 export interface WorkoutDay {
   id: string;
   plan_id: string;
   name?: string;
   focus?: string;
+  day_type?: WorkoutDayType;
+  cardio_spec?: CardioSpec | null;
   day_of_week?: number;
   position?: number;
   source: "generated" | "custom";
@@ -262,7 +284,12 @@ export interface Food {
   allergens?: string[];
   common_units?: string[];
   nutrient_source?: string;
-  source?: "seed" | "usda" | "user";
+  source?: "seed" | "usda" | "user" | "bam";
+  bam_code?: string;
+  local_price_key?: string;
+  preparation_state?: string;
+  price_update_required?: boolean;
+  nutrients?: Record<string, number | null>;
   created_by?: string;
 }
 

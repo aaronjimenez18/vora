@@ -349,8 +349,10 @@ function FoodPicker({
     const isBlocked = (f: Food) =>
       (f.allergens ?? []).some((a) => allergies.includes(a));
     const list = foods.filter((f) => !isBlocked(f));
-    if (!q) return list;
-    return list.filter((f) => f.name.toLowerCase().includes(q));
+    const filtered = q
+      ? list.filter((f) => f.name.toLowerCase().includes(q))
+      : list;
+    return filtered.slice(0, 40);
   }, [foods, query, allergies]);
 
   const selectedGrams = Number(grams) || 0;
