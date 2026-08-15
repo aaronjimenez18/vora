@@ -280,7 +280,19 @@ export interface MealLog {
   fiber_g?: number;
   cost_mxn?: number;
   notes?: string;
+  micros?: string[];
   created_at?: string;
+}
+
+export interface VisionFood {
+  name: string;
+  grams?: number;
+  calories?: number;
+  protein_g?: number;
+  carbs_g?: number;
+  fat_g?: number;
+  fiber_g?: number;
+  micros?: string[];
 }
 export interface ProgressEntry {
   id: string;

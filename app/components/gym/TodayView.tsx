@@ -13,6 +13,7 @@ import {
   setHydration,
 } from "@/lib/supabase/gym";
 import { Ring, MacroBar, SectionHeader, Empty } from "./Shared";
+import AICameraModal from "./AICameraModal";
 
 export default function TodayView({ onNavigate }: { onNavigate: (tab: TabId) => void }) {
   const { user, profile } = useApp();
@@ -22,6 +23,7 @@ export default function TodayView({ onNavigate }: { onNavigate: (tab: TabId) => 
   const [glasses, setGlasses] = useState(0);
   const [loading, setLoading] = useState(true);
   const [pickMeal, setPickMeal] = useState("");
+  const [cameraOpen, setCameraOpen] = useState(false);
 
   const today = new Date().toISOString().split("T")[0];
   const todayLabel = new Date().toLocaleDateString("es-MX", {
@@ -236,7 +238,19 @@ export default function TodayView({ onNavigate }: { onNavigate: (tab: TabId) => 
 
       {/* Comidas de hoy */}
       <div className="flex flex-col gap-3">
-        <SectionHeader kicker="comidas" title="comidas de hoy" />
+        <SectionHeader
+          kicker="comidas"
+          title="comidas de hoy"
+          action={
+            <button
+              onClick={() => setCameraOpen(true)}
+              className="btn-pill-primary text-xs py-1.5 px-3 flex items-center gap-1.5"
+            >
+              <span className="material-symbols-outlined text-[14px]">photo_camera</span>
+              Foto AI
+            </button>
+          }
+        />
 
         {logs.length === 0 ? (
           <Empty icon="restaurant" title="Todavía no registras comidas hoy.">
@@ -279,6 +293,18 @@ export default function TodayView({ onNavigate }: { onNavigate: (tab: TabId) => 
                     <span className="font-mono-num text-[10px] text-[#52525b] block truncate mt-0.5">
                       P{m.protein_g ?? 0} · C{m.carbs_g ?? 0} · F{m.fat_g ?? 0}
                     </span>
+                    {(m.micros?.length ?? 0) > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1.5">
+                        {m.micros!.slice(0, 3).map((micro) => (
+                          <span
+                            key={micro}
+                            className="text-[9px] text-[#a1a1aa] px-1.5 py-0.5 rounded-full bg-white/[0.05]"
+                          >
+                            {micro}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <div className="flex items-center gap-3 shrink-0">
                     <span className="font-mono-num text-xs text-[#f4f4f0]">{m.calories} kcal</span>
@@ -321,6 +347,27 @@ export default function TodayView({ onNavigate }: { onNavigate: (tab: TabId) => 
           </>
         )}
       </div>
+
+      {cameraOpen && (
+        <AICameraModal
+          allergies={profile?.allergies ?? []}
+          onLog={(log: {
+            meal_type: import("../../types").MealType;
+            custom_name: string;
+            quantity?: number;
+            calories: number;
+            protein_g: number;
+            carbs_g: number;
+            fat_g: number;
+            fiber_g?: number;
+            micros?: string[];
+          }) => {
+            if (!user) return;
+            insertMealLog(user.id, { date: today, ...log }).then(load);
+          }}
+          onClose={() => setCameraOpen(false)}
+        />
+      )}
     </div>
   );
 }

@@ -18,7 +18,15 @@ interface ToolArgs {
   limit?: number;
 }
 
-const MODEL = process.env.GEMINI_MODEL ?? "gemini-3.1-flash-lite";
+const CANDIDATE_MODELS = Array.from(
+  new Set(
+    [
+      process.env.GEMINI_MODEL,
+      "gemini-3.1-flash-lite",
+      "gemini-3.6-flash",
+    ].filter((m): m is string => Boolean(m) && typeof m === "string")
+  )
+);
 
 const WEB_SEARCH_ENABLED = process.env.GEMINI_WEB_SEARCH === "1";
 
@@ -286,25 +294,31 @@ export async function POST(req: Request) {
 
   const MAX_ROUNDS = 5;
   for (let round = 0; round < MAX_ROUNDS; round++) {
-    let res: Response;
-    try {
-      res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${apiKey}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ contents, tools: TOOLS }),
-          signal: AbortSignal.timeout(30000),
+    let res: Response | null = null;
+    for (const model of CANDIDATE_MODELS) {
+      try {
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ contents, tools: TOOLS }),
+            signal: AbortSignal.timeout(30000),
+          }
+        );
+        if (response.ok) {
+          res = response;
+          break;
+        } else {
+          const errText = await response.text();
+          console.error(`Gemini error [model: ${model}, status: ${response.status}]:`, errText.slice(0, 500));
         }
-      );
-    } catch (e) {
-      console.error("Gemini fetch failed", e);
-      return NextResponse.json({ fallback: true });
+      } catch (e) {
+        console.error(`Gemini fetch failed [model: ${model}]:`, e);
+      }
     }
 
-    if (!res.ok) {
-      const errText = await res.text();
-      console.error("Gemini error", res.status, errText.slice(0, 500));
+    if (!res || !res.ok) {
       return NextResponse.json({ fallback: true });
     }
 

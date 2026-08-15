@@ -11,34 +11,45 @@ const TABS: { id: TabId; label: string; icon: string }[] = [
   { id: "coach",    label: "Coach",    icon: "auto_awesome" },
 ];
 
-export default function BottomNav() {
+export default function BottomNav({ onOpenCamera }: { onOpenCamera: () => void }) {
   const { state, dispatch } = useApp();
+
+  const renderTab = (id: TabId, label: string, icon: string) => {
+    const isActive = state.activeTab === id;
+    return (
+      <button
+        key={id}
+        onClick={() => dispatch({ type: "SET_TAB", tab: id })}
+        className={`flex items-center gap-2 px-2.5 sm:px-4 py-2.5 rounded-full text-xs font-medium transition-all ${
+          isActive
+            ? "bg-white/[0.1] text-[#f4f4f0] shadow-sm"
+            : "text-[#a1a1aa] hover:text-[#f4f4f0] hover:bg-white/[0.04]"
+        }`}
+      >
+        <span
+          className="material-symbols-outlined text-[16px]"
+          style={{ color: isActive ? "#a3e635" : "inherit" }}
+        >
+          {icon}
+        </span>
+        <span className="hidden sm:inline">{label}</span>
+      </button>
+    );
+  };
 
   return (
     <nav className="fixed bottom-6 left-0 right-0 z-50 flex justify-center px-6 pointer-events-none">
       <div className="pointer-events-auto glass-pill p-1.5 flex items-center gap-1 sm:gap-1.5 shadow-2xl">
-        {TABS.map(({ id, label, icon }) => {
-          const isActive = state.activeTab === id;
-          return (
-            <button
-              key={id}
-              onClick={() => dispatch({ type: "SET_TAB", tab: id })}
-              className={`flex items-center gap-2 px-2.5 sm:px-4 py-2.5 rounded-full text-xs font-medium transition-all ${
-                isActive
-                  ? "bg-white/[0.1] text-[#f4f4f0] shadow-sm"
-                  : "text-[#a1a1aa] hover:text-[#f4f4f0] hover:bg-white/[0.04]"
-              }`}
-            >
-              <span
-                className="material-symbols-outlined text-[16px]"
-                style={{ color: isActive ? "#a3e635" : "inherit" }}
-              >
-                {icon}
-              </span>
-              <span className="hidden sm:inline">{label}</span>
-            </button>
-          );
-        })}
+        {TABS.slice(0, 3).map(({ id, label, icon }) => renderTab(id, label, icon))}
+        <button
+          onClick={onOpenCamera}
+          aria-label="Registrar comida con foto"
+          title="Foto IA"
+          className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-[#a3e635] text-[#09090b] flex items-center justify-center shadow-lg hover:bg-[#bef264] transition-colors -mt-2 sm:-mt-3 border-4 border-[#09090b] shrink-0"
+        >
+          <span className="material-symbols-outlined text-[20px]">photo_camera</span>
+        </button>
+        {TABS.slice(3).map(({ id, label, icon }) => renderTab(id, label, icon))}
       </div>
     </nav>
   );

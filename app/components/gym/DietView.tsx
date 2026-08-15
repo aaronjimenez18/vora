@@ -14,6 +14,7 @@ import {
 } from "@/lib/supabase/gym";
 import { budgetBandsMXN, LOW_BUDGET_STRATEGY, pricePer100gFromRecord } from "@/lib/engine/nutrition";
 import { SectionHeader, Empty } from "./Shared";
+import AICameraModal from "./AICameraModal";
 
 const MEAL_ORDER: MealType[] = ["breakfast", "lunch", "dinner", "snack"];
 const MEAL_LABELS: Record<MealType, string> = {
@@ -40,6 +41,7 @@ export default function DietView() {
   const [logs, setLogs] = useState<MealLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [cameraOpen, setCameraOpen] = useState(false);
 
   const today = useMemo(() => new Date().toISOString().split("T")[0], []);
   const todayWeekday = useMemo(() => (new Date().getDay() + 6) % 7, []);
@@ -308,12 +310,20 @@ export default function DietView() {
           kicker="diario"
           title="registrado hoy"
           action={
-            <button
-              onClick={() => setPickerOpen(true)}
-              className="btn-pill-secondary text-xs py-1.5 px-3"
-            >
-              + Alimento
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCameraOpen(true)}
+                className="btn-pill-secondary text-xs py-1.5 px-3"
+              >
+                Foto IA
+              </button>
+              <button
+                onClick={() => setPickerOpen(true)}
+                className="btn-pill-secondary text-xs py-1.5 px-3"
+              >
+                + Alimento
+              </button>
+            </div>
           }
         />
         {logs.length === 0 ? (
@@ -329,6 +339,18 @@ export default function DietView() {
                     {m.fiber_g ? ` · ${m.fiber_g} g fibra` : ""}
                     {m.cost_mxn ? ` · $${m.cost_mxn}` : ""}
                   </span>
+                  {(m.micros?.length ?? 0) > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-1.5">
+                      {m.micros!.slice(0, 3).map((micro) => (
+                        <span
+                          key={micro}
+                          className="text-[9px] text-[#a1a1aa] px-1.5 py-0.5 rounded-full bg-white/[0.05]"
+                        >
+                          {micro}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <button
                   onClick={() => handleDelete(m.id)}
@@ -350,6 +372,17 @@ export default function DietView() {
             insertMealLog(user.id, { date: today, ...log }).then(load);
           }}
           onClose={() => setPickerOpen(false)}
+        />
+      )}
+
+      {cameraOpen && (
+        <AICameraModal
+          allergies={profile?.allergies ?? []}
+          onLog={(log) => {
+            if (!user) return;
+            insertMealLog(user.id, { date: today, ...log }).then(load);
+          }}
+          onClose={() => setCameraOpen(false)}
         />
       )}
     </div>

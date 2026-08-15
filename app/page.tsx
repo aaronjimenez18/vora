@@ -1,10 +1,13 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { AppProvider, useApp } from "./context/AppContext";
 import type { TabId } from "./types";
+import { insertMealLog } from "@/lib/supabase/gym";
 
 import BottomNav from "./components/BottomNav";
+import AICameraModal from "./components/gym/AICameraModal";
 import TodayView from "./components/gym/TodayView";
 import WorkoutView from "./components/gym/WorkoutView";
 import DietView from "./components/gym/DietView";
@@ -14,6 +17,8 @@ import CoachView from "./components/gym/CoachView";
 function VoraApp() {
   const router = useRouter();
   const { state, dispatch, authLoading, user, profile, profileLoading } = useApp();
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   // Puerta de auth: esperar resolución de sesión
   if (authLoading) {
@@ -52,8 +57,23 @@ function VoraApp() {
 
   return (
     <div className="min-h-screen flex flex-col bg-[#09090b]">
-      <main className="flex-1 px-3 sm:px-4 pt-4 sm:pt-6 max-w-xl mx-auto w-full overflow-x-hidden">{renderView()}</main>
-      <BottomNav />
+      <main key={reloadKey} className="flex-1 px-3 sm:px-4 pt-4 sm:pt-6 max-w-xl mx-auto w-full overflow-x-hidden">
+        {renderView()}
+      </main>
+      <BottomNav onOpenCamera={() => setCameraOpen(true)} />
+      {cameraOpen && user && profile && (
+        <AICameraModal
+          allergies={profile.allergies ?? []}
+          onLog={(log) => {
+            if (!user) return;
+            insertMealLog(user.id, {
+              date: new Date().toISOString().split("T")[0],
+              ...log,
+            }).then(() => setReloadKey((k) => k + 1));
+          }}
+          onClose={() => setCameraOpen(false)}
+        />
+      )}
     </div>
   );
 }

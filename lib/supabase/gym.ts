@@ -115,14 +115,36 @@ export async function insertMealLog(
     food_id?: string;
     quantity?: number;
     cost_mxn?: number;
+    micros?: string[];
   }
 ): Promise<void> {
   const { supabase, user } = await requireUser();
   if (!user) throw new Error("Sin sesión");
-  await supabase.from("meal_logs").insert({
-    user_id: userId,
-    ...log,
-  });
+
+  const payload: Record<string, unknown> = { user_id: userId, ...log };
+  const { error } = await supabase.from("meal_logs").insert(payload);
+
+  if (error) {
+    // Si el error es por columna desconocida (micros aún no migrado), reintentar sin ella
+    const isMissingColumn =
+      error.message?.includes("micros") ||
+      error.code === "PGRST204" ||
+      error.code === "42703";
+
+    if (isMissingColumn && "micros" in payload) {
+      console.warn("insertMealLog: columna 'micros' no encontrada en schema cache, reintentando sin ella…");
+      const { micros: _omitted, ...payloadWithoutMicros } = payload;
+      const { error: retryError } = await supabase.from("meal_logs").insert(payloadWithoutMicros);
+      if (retryError) {
+        console.error("Supabase insertMealLog retry error:", retryError);
+        throw new Error(retryError.message || "Error al registrar comida");
+      }
+      return;
+    }
+
+    console.error("Supabase insertMealLog error:", error);
+    throw new Error(error.message || "Error al registrar comida");
+  }
 }
 
 export async function deleteMealLog(id: string): Promise<void> {
