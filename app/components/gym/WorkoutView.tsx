@@ -8,6 +8,8 @@ import {
   analyzeSession,
   applyDecision,
   createSession,
+  createCustomWorkoutPlan,
+  addWorkoutDay,
   fetchActiveWorkout,
   fetchExercises,
   fetchLatestE1RMs,
@@ -98,6 +100,7 @@ export default function WorkoutView() {
   const [workout, setWorkout] = useState<Awaited<ReturnType<typeof fetchActiveWorkout>>>(null);
   const [catalog, setCatalog] = useState<Exercise[]>([]);
   const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
 
   const [selectedDay, setSelectedDay] = useState<WorkoutDay | null>(null);
   const [history, setHistory] = useState<Awaited<ReturnType<typeof fetchSessionsForDay>>>([]);
@@ -160,6 +163,30 @@ export default function WorkoutView() {
     const nd = w?.days.find((d) => d.id === dayId) ?? null;
     setSelectedDay(nd);
     setVolDraft({});
+  }
+
+  async function createWorkout() {
+    if (!user || creating) return;
+    setCreating(true);
+    try {
+      if (catalog.length === 0) setCatalog(await fetchExercises());
+      const plan = await createCustomWorkoutPlan(user.id, "Mi rutina");
+      const weekday = (new Date().getDay() + 6) % 7; // lunes = 0
+      const day = await addWorkoutDay(plan.id, {
+        name: "Día 1",
+        day_of_week: weekday,
+        position: 0,
+      });
+      const w = await fetchActiveWorkout(user.id);
+      setWorkout(w);
+      setSelectedDay(day);
+      setEditing(true);
+      setPicker({ mode: "add" });
+    } catch (err) {
+      console.error("createWorkout", err);
+    } finally {
+      setCreating(false);
+    }
   }
 
   const todayStr = new Date().toISOString().split("T")[0];
@@ -407,8 +434,24 @@ export default function WorkoutView() {
         <Empty
           icon="fitness_center"
           title="Aún no tienes un plan de entrenamiento."
-          hint={user ? "En modo guiado el plan se genera al completar el onboarding." : ""}
-        />
+          hint={
+            profile?.mode === "manual"
+              ? "Modo libre activo: crea tu propia rutina y agrega ejercicios."
+              : user
+                ? "En modo guiado el plan se genera al completar el onboarding."
+                : ""
+          }
+        >
+          {profile?.mode === "manual" && user && (
+            <button
+              onClick={createWorkout}
+              disabled={creating}
+              className="btn-pill-primary mt-2 py-3 px-6 disabled:opacity-60"
+            >
+              {creating ? "creando…" : "crear rutina"}
+            </button>
+          )}
+        </Empty>
       </div>
     );
   }

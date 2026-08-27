@@ -1,11 +1,4 @@
 @import "tailwindcss";
-
-/* ─────────────────────────────────────────────────────────────
-   VORA — Editorial Luxury Aesthetic
-   Ground: #09090b · Ink: #f4f4f0 · Accent: #a3e635
-   Serif: Newsreader · Sans: Inter · Mono: JetBrains Mono
-   ───────────────────────────────────────────────────────────── */
-
 @layer base {
   *, *::before, *::after {
     box-sizing: border-box;
@@ -30,23 +23,7 @@
 }
 
 /* ── Typography ────────────────────────────────────────────── */
-.font-serif-title {
-  font-family: var(--font-serif), Georgia, serif;
-  letter-spacing: -0.03em;
-  line-height: 1.1;
-}
 
-.font-serif-italic {
-  font-family: var(--font-serif), Georgia, serif;
-  font-style: italic;
-  letter-spacing: -0.02em;
-  line-height: 1.15;
-}
-
-.font-mono-num {
-  font-family: var(--font-mono), monospace;
-  font-feature-settings: "tnum" on, "zero" on;
-}
 
 /* label-caps: lowercase aesthetic — todo en minúsculas */
 .label-caps {

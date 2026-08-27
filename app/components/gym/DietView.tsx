@@ -133,13 +133,103 @@ export default function DietView() {
   }
 
   if (!plan) {
+    const isManual = profile?.mode === "manual";
     return (
       <div className="flex flex-col gap-8 pb-28 animate-fade-in-up">
         <div className="flex flex-col gap-0.5 pt-1">
           <span className="label-caps">plan</span>
           <h1 className="font-serif-italic text-2xl text-[#f4f4f0]">dieta</h1>
         </div>
-        <Empty icon="restaurant" title="aún no tienes un plan de dieta." />
+
+        {isManual ? (
+          <>
+            <div className="glass-floating p-5">
+              <span className="label-meta">
+                modo libre activo — sin plan de comidas generado. registra tus comidas a mano o
+                busca alimentos del catálogo.
+              </span>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <SectionHeader
+                kicker="diario"
+                title="registrado hoy"
+                action={
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => setCameraOpen(true)}
+                      className="btn-pill-secondary text-[11px] py-1.5 px-3 flex items-center gap-1"
+                    >
+                      <span className="material-symbols-outlined text-[13px]">photo_camera</span>
+                      foto
+                    </button>
+                    <button
+                      onClick={() => setPickerOpen(true)}
+                      className="btn-pill-secondary text-[11px] py-1.5 px-3"
+                    >
+                      + alimento
+                    </button>
+                  </div>
+                }
+              />
+              {logs.length === 0 ? (
+                <Empty
+                  icon="event_note"
+                  title="nada registrado hoy todavía."
+                  hint="toca '+ alimento' o 'foto' para añadir una comida."
+                />
+              ) : (
+                <div className="glass-floating divide-y divide-white/[0.05] overflow-hidden">
+                  {logs.map((m, idx) => (
+                    <div
+                      key={m.id}
+                      className={`flex items-center gap-3 py-3.5 px-4 animate-fade-in-up stagger-${Math.min(idx + 1, 5)}`}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <span className="text-xs text-[#f4f4f0] truncate block">{m.custom_name}</span>
+                        <span className="font-mono-num text-[10px] text-[#3f3f46] block truncate mt-0.5">
+                          {m.calories} kcal
+                          {m.fiber_g ? ` · ${m.fiber_g}g fibra` : ""}
+                          {m.cost_mxn ? ` · $${m.cost_mxn}` : ""}
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => handleDelete(m.id)}
+                        className="text-[#3f3f46] hover:text-[#f87171] transition-colors shrink-0 p-1.5 rounded-full hover:bg-[#f87171]/10"
+                      >
+                        <span className="material-symbols-outlined text-[15px]">close</span>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </>
+        ) : (
+          <Empty icon="restaurant" title="aún no tienes un plan de dieta." />
+        )}
+
+        {pickerOpen && (
+          <FoodPicker
+            allergies={profile?.allergies ?? []}
+            onAdd={(log) => {
+              if (!user) return;
+              insertMealLog(user.id, { date: today, ...log }).then(load);
+            }}
+            onClose={() => setPickerOpen(false)}
+          />
+        )}
+
+        {cameraOpen && (
+          <AICameraModal
+            allergies={profile?.allergies ?? []}
+            onLog={(log) => {
+              if (!user) return;
+              insertMealLog(user.id, { date: today, ...log }).then(load);
+            }}
+            onClose={() => setCameraOpen(false)}
+          />
+        )}
       </div>
     );
   }
@@ -449,7 +539,7 @@ export default function DietView() {
   );
 }
 
-function FoodPicker({
+export function FoodPicker({
   allergies,
   onAdd,
   onClose,

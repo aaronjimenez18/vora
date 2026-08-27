@@ -10,10 +10,11 @@ import {
   fetchMealLogs,
   insertMealLog,
   deleteMealLog,
-  setHydration,
 } from "@/lib/supabase/gym";
+import { calculateTargets } from "@/lib/engine/nutrition";
 import { Ring, MacroBar, SectionHeader, Empty } from "./Shared";
 import AICameraModal from "./AICameraModal";
+import { FoodPicker } from "./DietView";
 
 export default function TodayView({ onNavigate }: { onNavigate: (tab: TabId) => void }) {
   const { user, profile } = useApp();
@@ -24,6 +25,7 @@ export default function TodayView({ onNavigate }: { onNavigate: (tab: TabId) => 
   const [loading, setLoading] = useState(true);
   const [pickMeal, setPickMeal] = useState("");
   const [cameraOpen, setCameraOpen] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   const today = new Date().toISOString().split("T")[0];
 
@@ -60,6 +62,26 @@ export default function TodayView({ onNavigate }: { onNavigate: (tab: TabId) => 
   }, [load]);
 
   const plan = diet?.plan ?? null;
+  const isManual = profile?.mode === "manual";
+  const profileTargets = useMemo(
+    () => (isManual && profile ? calculateTargets(profile) : null),
+    [isManual, profile]
+  );
+  const dayGoals = plan
+    ? {
+        calories: plan.calories ?? 0,
+        protein: plan.protein_g ?? 0,
+        carbs: plan.carbs_g ?? 0,
+        fat: plan.fat_g ?? 0,
+      }
+    : profileTargets
+      ? {
+          calories: profileTargets.calories,
+          protein: profileTargets.protein,
+          carbs: profileTargets.carbs,
+          fat: profileTargets.fat,
+        }
+      : null;
   const weekdayIndex = (new Date().getDay() + 6) % 7; // lunes = 0
   const dayMap = new Map<number, WorkoutDay>(
     (workout?.days ?? []).filter((d) => d.day_of_week != null).map((d) => [d.day_of_week!, d])
@@ -128,12 +150,12 @@ export default function TodayView({ onNavigate }: { onNavigate: (tab: TabId) => 
       </div>
 
       {/* ── Objetivos / macros ───────────────────────────────── */}
-      {plan ? (
+      {dayGoals ? (
         <div className="glass-floating divide-y divide-white/[0.05] animate-fade-in-up stagger-1">
-          <Ring value={total.calories} goal={plan.calories ?? 0} label="kcal consumidas" />
-          <MacroBar label="proteína" consumed={total.protein} goal={plan.protein_g ?? 0} />
-          <MacroBar label="carbohidratos" consumed={total.carbs} goal={plan.carbs_g ?? 0} />
-          <MacroBar label="grasas" consumed={total.fat} goal={plan.fat_g ?? 0} />
+          <Ring value={total.calories} goal={dayGoals.calories} label="kcal consumidas" />
+          <MacroBar label="proteína" consumed={total.protein} goal={dayGoals.protein} />
+          <MacroBar label="carbohidratos" consumed={total.carbs} goal={dayGoals.carbs} />
+          <MacroBar label="grasas" consumed={total.fat} goal={dayGoals.fat} />
           {profile && (profile.weight_kg != null || profile.body_fat != null) && (
             <div className="flex items-center justify-between px-4 sm:px-6 py-3">
               <span className="label-caps">composición</span>
@@ -154,65 +176,6 @@ export default function TodayView({ onNavigate }: { onNavigate: (tab: TabId) => 
           </span>
         </div>
       )}
-
-      {/* ── Hidratación ─────────────────────────────────────── */}
-      <div className="glass-floating p-4 sm:p-5 flex flex-col gap-4 animate-fade-in-up stagger-2">
-        <div className="flex items-center justify-between gap-3">
-          <span className="label-caps">hidratación</span>
-          <span
-            className={`font-mono-num text-[10px] tracking-wider ${
-              glasses >= waterGoal ? "verdict-on-track" : "text-[#52525b]"
-            }`}
-          >
-            {glasses >= waterGoal
-              ? "cumplida"
-              : `faltan ${waterGoal - glasses} ${waterGoal - glasses === 1 ? "vaso" : "vasos"}`}
-          </span>
-        </div>
-
-        <div className="flex items-baseline gap-1.5">
-          <span className="font-serif-title text-3xl text-[#f4f4f0]">
-            {(glasses * 0.25).toLocaleString("es-MX", { maximumFractionDigits: 1 })}
-          </span>
-          <span className="font-mono-num text-[11px] text-[#3f3f46]">
-            / {(waterGoal * 0.25).toLocaleString("es-MX", { maximumFractionDigits: 1 })} l
-          </span>
-        </div>
-
-        {/* progress hairline */}
-        <div className="h-px bg-white/[0.05] rounded-full overflow-hidden -mt-1">
-          <div
-            className="h-full bg-[#60a5fa] transition-all duration-500"
-            style={{ width: `${Math.min(1, glasses / waterGoal) * 100}%`, opacity: 0.6 }}
-          />
-        </div>
-
-        {/* toggles */}
-        <div className="grid grid-cols-8 gap-1.5">
-          {Array.from({ length: Math.max(waterGoal, 8) }, (_, i) => {
-            const filled = i < glasses;
-            return (
-              <button
-                key={i}
-                aria-pressed={filled}
-                aria-label={`vaso ${i + 1}`}
-                onClick={() => {
-                  const next = glasses === i + 1 ? i : i + 1;
-                  setGlasses(next);
-                  if (user) setHydration(user.id, today, next);
-                }}
-                className={`aspect-square rounded-xl transition-all duration-200 flex items-center justify-center ${
-                  filled
-                    ? "bg-[#60a5fa]/20 border border-[#60a5fa]/40 text-[#60a5fa]"
-                    : "bg-white/[0.03] border border-white/[0.06] text-[#3f3f46] hover:border-white/[0.12]"
-                }`}
-              >
-                <span className="material-symbols-outlined text-[13px]">water_drop</span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
 
       {/* ── Entreno de hoy ──────────────────────────────────── */}
       <div className="flex flex-col gap-3 animate-fade-in-up stagger-3">
@@ -254,6 +217,17 @@ export default function TodayView({ onNavigate }: { onNavigate: (tab: TabId) => 
               arrow_forward_ios
             </span>
           </button>
+        ) : isManual && !workout ? (
+          <button
+            onClick={() => onNavigate("workout")}
+            className="glass-card p-5 flex items-center gap-3 text-left w-full"
+          >
+            <span className="material-symbols-outlined text-[20px] text-[#a3e635]">fitness_center</span>
+            <span className="label-meta">modo libre: registra tu entreno desde la pestaña rutina.</span>
+            <span className="material-symbols-outlined text-[16px] text-[#3f3f46] ml-auto shrink-0">
+              arrow_forward_ios
+            </span>
+          </button>
         ) : (
           <div className="glass-card p-5 flex items-center gap-3">
             <span className="material-symbols-outlined text-[20px] text-[#52525b]">bedtime</span>
@@ -268,13 +242,24 @@ export default function TodayView({ onNavigate }: { onNavigate: (tab: TabId) => 
           kicker="comidas"
           title="comidas de hoy"
           action={
-            <button
-              onClick={() => setCameraOpen(true)}
-              className="btn-pill-secondary text-xs py-2 px-3.5 flex items-center gap-1.5"
-            >
-              <span className="material-symbols-outlined text-[14px]">photo_camera</span>
-              foto
-            </button>
+            <div className="flex items-center gap-1.5">
+              {!diet && (
+                <button
+                  onClick={() => setPickerOpen(true)}
+                  className="btn-pill-secondary text-xs py-2 px-3.5 flex items-center gap-1.5"
+                >
+                  <span className="material-symbols-outlined text-[14px]">search</span>
+                  alimento
+                </button>
+              )}
+              <button
+                onClick={() => setCameraOpen(true)}
+                className="btn-pill-secondary text-xs py-2 px-3.5 flex items-center gap-1.5"
+              >
+                <span className="material-symbols-outlined text-[14px]">photo_camera</span>
+                foto
+              </button>
+            </div>
           }
         />
 
@@ -397,6 +382,28 @@ export default function TodayView({ onNavigate }: { onNavigate: (tab: TabId) => 
             insertMealLog(user.id, { date: today, ...log }).then(load);
           }}
           onClose={() => setCameraOpen(false)}
+        />
+      )}
+
+      {pickerOpen && (
+        <FoodPicker
+          allergies={profile?.allergies ?? []}
+          onAdd={(log: {
+            meal_type: import("../../types").MealType;
+            food_id: string;
+            custom_name: string;
+            quantity: number;
+            calories: number;
+            protein_g: number;
+            carbs_g: number;
+            fat_g: number;
+            fiber_g?: number;
+            cost_mxn?: number;
+          }) => {
+            if (!user) return;
+            insertMealLog(user.id, { date: today, ...log }).then(load);
+          }}
+          onClose={() => setPickerOpen(false)}
         />
       )}
     </div>

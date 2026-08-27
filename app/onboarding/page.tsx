@@ -10,44 +10,25 @@ import type { AppMode, Experience, Goal, Sex } from "../types";
 interface FormState {
   age: string;
   sex: Sex | "";
-  sex_for_equation: "male" | "female" | "";
   height_cm: string;
   weight_kg: string;
   body_fat: string;
-  waist_cm: string;
   goal: Goal | "";
   experience: Experience | "";
   training_days: string;
-  training_minutes: string;
   equipment: string;
-  injuries: string;
   split_pref: string;
   running_level: string;
   occupation_activity: string;
-  steps_per_day: string;
   running_days_per_week: string;
-  training_intensity: string;
   cardio_minutes_per_week: string;
   budget_amount_mxn: string;
   budget_period: string;
-  household_size: string;
-  shared_foods: boolean;
-  budget_includes_supplements: boolean;
-  budget_includes_eating_out: boolean;
-  shopping_frequency: string;
-  store_preferences: string;
   diet_style: string;
   allergies: string[];
-  intolerances: string[];
-  religious_restrictions: string;
   foods_liked: string;
   foods_disliked: string;
-  cooking_time_minutes: string;
-  kitchen_equipment: string[];
-  meals_per_day: string;
-  snacks_per_day: string;
   health_flags: SafetyFlag[];
-  output_preferences: string[];
   weekly_budget: string;
   dietary_prefs: string;
   activity_level: string;
@@ -57,44 +38,25 @@ interface FormState {
 const INITIAL: FormState = {
   age: "",
   sex: "",
-  sex_for_equation: "",
   height_cm: "",
   weight_kg: "",
   body_fat: "",
-  waist_cm: "",
   goal: "",
   experience: "",
   training_days: "",
-  training_minutes: "",
   equipment: "",
-  injuries: "",
   split_pref: "auto",
   running_level: "first_time",
   occupation_activity: "",
-  steps_per_day: "",
   running_days_per_week: "",
-  training_intensity: "",
   cardio_minutes_per_week: "",
   budget_amount_mxn: "",
   budget_period: "",
-  household_size: "",
-  shared_foods: false,
-  budget_includes_supplements: false,
-  budget_includes_eating_out: false,
-  shopping_frequency: "",
-  store_preferences: "",
   diet_style: "",
   allergies: [],
-  intolerances: [],
-  religious_restrictions: "",
   foods_liked: "",
   foods_disliked: "",
-  cooking_time_minutes: "",
-  kitchen_equipment: [],
-  meals_per_day: "",
-  snacks_per_day: "",
   health_flags: [],
-  output_preferences: [],
   weekly_budget: "",
   dietary_prefs: "ninguna",
   activity_level: "",
@@ -105,12 +67,11 @@ const STEPS = [
   { label: "datos", title: "Cuéntame sobre ti", subtitle: "Edad, sexo y medidas corporales." },
   { label: "objetivo", title: "¿Cuál es tu objetivo?", subtitle: "Esto define tu estrategia de calorías y entreno." },
   { label: "experiencia", title: "¿Cuánto sabes entrenar?", subtitle: "Para ajustar el volumen y la complejidad." },
-  { label: "entreno", title: "Tu entrenamiento", subtitle: "Días, tiempo, equipamiento y carga semanal." },
+  { label: "entreno", title: "Tu entrenamiento", subtitle: "Días, equipamiento y carga semanal." },
   { label: "actividad", title: "Tu día a día", subtitle: "Qué tan activo eres fuera del gimnasio." },
-  { label: "presupuesto", title: "Presupuesto de comida", subtitle: "Cuánto gastas y cómo compras." },
+  { label: "presupuesto", title: "Presupuesto de comida", subtitle: "Cuánto gastas." },
   { label: "preferencias", title: "Preferencias y restricciones", subtitle: "Las alergias bloquean alimentos de forma estricta." },
   { label: "salud", title: "Filtro de seguridad", subtitle: "Para saber cuándo debes consultar a un profesional." },
-  { label: "salida", title: "¿Cómo recibes el plan?", subtitle: "Formato del menú, compras y porciones." },
   { label: "modo", title: "¿Cómo quieres llevarlo?", subtitle: "Guía automática o registro libre." },
 ] as const;
 
@@ -125,23 +86,6 @@ const ALLERGY_OPTIONS: { v: string; l: string }[] = [
   { v: "gluten_possible", l: "Trigo / gluten" },
 ];
 
-const INTOLERANCE_OPTIONS = [
-  "lactosa",
-  "fructosa",
-  "gluten (celiaco)",
-  "histamina",
-] as const;
-
-const KITCHEN_OPTIONS = [
-  "estufa",
-  "horno",
-  "microondas",
-  "licuadora",
-  "airfryer",
-  "parrilla",
-  "olla de presión",
-] as const;
-
 const HEALTH_OPTIONS: { v: SafetyFlag; l: string; d: string }[] = [
   { v: "pregnancy_or_breastfeeding", l: "Embarazo o lactancia", d: "Requiere supervisión clínica." },
   { v: "eating_disorder_history", l: "Antecedente de trastorno alimentario", d: "Derivar a valoración profesional." },
@@ -154,18 +98,6 @@ const HEALTH_OPTIONS: { v: SafetyFlag; l: string; d: string }[] = [
   { v: "unintentional_weight_loss", l: "Pérdida de peso sin buscarla", d: "Derivar a valoración profesional." },
   { v: "rapid_weight_change", l: "Cambio de peso muy rápido", d: "Derivar a valoración profesional." },
   { v: "under_18", l: "Soy menor de 18 años", d: "Requerimientos en etapa de crecimiento." },
-];
-
-const OUTPUT_OPTIONS: { v: string; l: string }[] = [
-  { v: "daily_menu", l: "Menú diario" },
-  { v: "meal_templates", l: "Plantillas de comidas" },
-  { v: "grams_servings", l: "Porciones en gramos" },
-  { v: "household_servings", l: "Porciones caseras (taza, pieza…)" },
-  { v: "shopping_list", l: "Lista de compras" },
-  { v: "batch_cooking", l: "Batch cooking" },
-  { v: "low_cost_substitutions", l: "Sustituciones económicas" },
-  { v: "macros_per_meal", l: "Macros por comida" },
-  { v: "micronutrient_coverage", l: "Cobertura de micronutrientes" },
 ];
 
 function OptionCard({
@@ -330,7 +262,7 @@ function OnboardingPage() {
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((f) => ({ ...f, [key]: value }));
 
-  const toggle = (key: "allergies" | "kitchen_equipment" | "health_flags" | "output_preferences", v: string) =>
+  const toggle = (key: "allergies" | "health_flags", v: string) =>
     setForm((f) => {
       const cur = f[key] as string[];
       return {
@@ -353,16 +285,13 @@ function OnboardingPage() {
     if (i === 2 && !form.experience) return false;
     if (i === 3) {
       const days = Number(form.training_days);
-      const mins = Number(form.training_minutes);
-      if (!(days >= 1 && days <= 7) || !(mins >= 15 && mins <= 180)) return false;
+      if (!(days >= 1 && days <= 7)) return false;
       if (!form.equipment) return false;
     }
     if (i === 4 && !form.occupation_activity) return false;
     if (i === 5) {
       const amount = Number(form.budget_amount_mxn);
-      const hh = Number(form.household_size);
       if (!(amount >= 0) || !form.budget_period) return false;
-      if (!(hh >= 1 && hh <= 20)) return false;
     }
     if (i === 6 && !form.diet_style) return false;
     return true;
@@ -404,45 +333,26 @@ function OnboardingPage() {
         user_id: user.id,
         age: Number(form.age),
         sex: form.sex as Sex,
-        sex_for_equation: form.sex_for_equation || null,
         height_cm: Number(form.height_cm),
         weight_kg: Number(form.weight_kg),
         body_fat: form.body_fat ? Math.max(3, Math.min(60, Number(form.body_fat))) : null,
         goal: form.goal as Goal,
         experience: form.experience as Experience,
         training_days: Math.min(7, Math.max(1, Math.floor(Number(form.training_days) || 1))),
-        training_minutes: Math.min(180, Math.max(15, Math.floor(Number(form.training_minutes) || 60))),
         equipment: form.equipment,
-        injuries: form.injuries.trim() || null,
         split_pref: form.split_pref,
         running_level: (["first_time", "beginner", "intermediate", "advanced"].includes(form.running_level) ? form.running_level : "first_time") as "first_time" | "beginner" | "intermediate" | "advanced",
         occupation_activity: activity,
-        steps_per_day: form.steps_per_day ? Math.max(0, Math.floor(Number(form.steps_per_day))) : null,
         strength_days_per_week: strengthDays,
         running_days_per_week: runningDays,
-        average_session_minutes: form.training_minutes ? Math.min(600, Math.max(0, Math.floor(Number(form.training_minutes)))) : null,
-        training_intensity: form.training_intensity || null,
         cardio_minutes_per_week: form.cardio_minutes_per_week ? Math.max(0, Math.floor(Number(form.cardio_minutes_per_week))) : 0,
         budget_amount_mxn: Math.max(0, Number(form.budget_amount_mxn) || 0),
         budget_period: form.budget_period || null,
-        budget_includes_supplements: form.budget_includes_supplements,
-        budget_includes_eating_out: form.budget_includes_eating_out,
-        household_size: Math.min(20, Math.max(1, Math.floor(Number(form.household_size) || 1))),
-        shared_foods: form.shared_foods,
-        shopping_frequency: form.shopping_frequency || null,
-        store_preferences: form.store_preferences.trim() || null,
         diet_style: form.diet_style || null,
         allergies: form.allergies,
-        intolerances: parseList(form.intolerances.join(",")),
-        religious_restrictions: form.religious_restrictions.trim() || null,
         foods_liked: parseList(form.foods_liked),
         foods_disliked: parseList(form.foods_disliked),
-        cooking_time_minutes: form.cooking_time_minutes ? Math.min(600, Math.max(0, Math.floor(Number(form.cooking_time_minutes)))) : null,
-        kitchen_equipment: form.kitchen_equipment,
-        meals_per_day: form.meals_per_day ? Math.min(8, Math.max(1, Math.floor(Number(form.meals_per_day)))) : 3,
-        snacks_per_day: form.snacks_per_day ? Math.min(6, Math.max(0, Math.floor(Number(form.snacks_per_day)))) : 1,
         health_flags: form.health_flags,
-        output_preferences: form.output_preferences,
         weekly_budget: Math.max(0, Number(form.budget_amount_mxn) || 0),
         dietary_prefs: form.diet_style || null,
         activity_level: activity,
@@ -485,8 +395,7 @@ function OnboardingPage() {
   const progress = Math.round((step / (STEPS.length - 1)) * 100);
   const goalLabel = form.goal || "—";
   const eqSex =
-    form.sex_for_equation ||
-    (form.sex === "female" ? "femenino" : form.sex === "male" ? "masculino" : form.sex || "—");
+    form.sex === "female" ? "femenino" : form.sex === "male" ? "masculino" : form.sex || "—";
 
   return (
     <main className="min-h-screen bg-[#09090b] flex flex-col">
@@ -539,27 +448,6 @@ function OnboardingPage() {
               </p>
             </div>
             <div>
-              <StepLabel text="ecuación de calorías (opcional)" />
-              <div className="flex gap-2">
-                {(
-                  [
-                    { v: "female", l: "Fórmula femenina" },
-                    { v: "male", l: "Fórmula masculina" },
-                  ] as const
-                ).map((o) => (
-                  <Chip
-                    key={o.v}
-                    active={form.sex_for_equation === o.v}
-                    label={o.l}
-                    onClick={() => set("sex_for_equation", form.sex_for_equation === o.v ? "" : o.v)}
-                  />
-                ))}
-              </div>
-              <p className="text-[10px] text-[#71717a] mt-2">
-                Solo si un profesional lo indica; si no, se usa el sexo biológico.
-              </p>
-            </div>
-            <div>
               <StepLabel text="medidas" />
               <div className="flex flex-col gap-3">
                 <NumberField value={form.height_cm} onChange={(v) => set("height_cm", v)} placeholder="Altura" suffix="cm" />
@@ -568,12 +456,9 @@ function OnboardingPage() {
             </div>
             <div>
               <StepLabel text="medidas opcionales" />
-              <div className="flex flex-col gap-3">
-                <NumberField value={form.body_fat} onChange={(v) => set("body_fat", v)} placeholder="% grasa corporal" suffix="%" />
-                <NumberField value={form.waist_cm} onChange={(v) => set("waist_cm", v)} placeholder="Cintura" suffix="cm" />
-              </div>
+              <NumberField value={form.body_fat} onChange={(v) => set("body_fat", v)} placeholder="% grasa corporal" suffix="%" />
               <p className="text-[10px] text-[#71717a] mt-2">
-                Opcionales: no los exiges a todos, solo mejoran la precisión.
+                Opcional: solo mejora la precisión del cálculo de calorías.
               </p>
             </div>
           </div>
@@ -638,30 +523,6 @@ function OnboardingPage() {
                   >
                     {d}
                   </button>
-                ))}
-              </div>
-            </div>
-            <div>
-              <StepLabel text="minutos por sesión" />
-              <NumberField value={form.training_minutes} onChange={(v) => set("training_minutes", v)} placeholder="Ej. 60" suffix="min" />
-            </div>
-            <div>
-              <StepLabel text="intensidad del entrenamiento" />
-              <div className="flex flex-col gap-2">
-                {(
-                  [
-                    { v: "low", l: "Suave", d: "Técnica y movilidad, poco esfuerzo máximo." },
-                    { v: "moderate", l: "Moderada", d: "Esfuerzo sostenido, buenas series duras." },
-                    { v: "high", l: "Alta", d: "Al fallo o muy cerca, muchas series duras." },
-                  ] as const
-                ).map((o) => (
-                  <OptionCard
-                    key={o.v}
-                    active={form.training_intensity === o.v}
-                    label={o.l}
-                    desc={o.d}
-                    onClick={() => set("training_intensity", o.v)}
-                  />
                 ))}
               </div>
             </div>
@@ -735,15 +596,6 @@ function OnboardingPage() {
                 ))}
               </div>
             </div>
-            <div>
-              <StepLabel text="lesiones o limitaciones (opcional)" />
-              <input
-                className="input-pill w-full"
-                placeholder="Ej. rodilla derecha, hombro…"
-                value={form.injuries}
-                onChange={(e) => set("injuries", e.target.value)}
-              />
-            </div>
           </div>
         )}
 
@@ -774,10 +626,6 @@ function OnboardingPage() {
                 Es una estimación inicial: se ajusta con peso, hambre y rendimiento observados.
               </p>
             </div>
-            <div>
-              <StepLabel text="pasos al día (opcional)" />
-              <NumberField value={form.steps_per_day} onChange={(v) => set("steps_per_day", v)} placeholder="Ej. 8000" suffix="pasos" />
-            </div>
           </div>
         )}
 
@@ -805,56 +653,6 @@ function OnboardingPage() {
                   />
                 ))}
               </div>
-            </div>
-            <div>
-              <StepLabel text="personas en casa" />
-              <NumberField value={form.household_size} onChange={(v) => set("household_size", v)} placeholder="Ej. 2" />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Toggle
-                checked={form.shared_foods}
-                label="El presupuesto cubre a todo el hogar"
-                onChange={() => set("shared_foods", !form.shared_foods)}
-              />
-              <Toggle
-                checked={form.budget_includes_supplements}
-                label="Incluye suplementos"
-                onChange={() => set("budget_includes_supplements", !form.budget_includes_supplements)}
-              />
-              <Toggle
-                checked={form.budget_includes_eating_out}
-                label="Incluye comer fuera de casa"
-                onChange={() => set("budget_includes_eating_out", !form.budget_includes_eating_out)}
-              />
-            </div>
-            <div>
-              <StepLabel text="frecuencia de compra" />
-              <div className="flex flex-wrap gap-2">
-                {(
-                  [
-                    { v: "daily", l: "Diario" },
-                    { v: "weekly", l: "Semanal" },
-                    { v: "biweekly", l: "Quincenal" },
-                    { v: "monthly", l: "Mensual" },
-                  ] as const
-                ).map((o) => (
-                  <Chip
-                    key={o.v}
-                    active={form.shopping_frequency === o.v}
-                    label={o.l}
-                    onClick={() => set("shopping_frequency", form.shopping_frequency === o.v ? "" : o.v)}
-                  />
-                ))}
-              </div>
-            </div>
-            <div>
-              <StepLabel text="dónde compras (opcional)" />
-              <input
-                className="input-pill w-full"
-                placeholder="Ej. mercado, Chedraui, Soriana…"
-                value={form.store_preferences}
-                onChange={(e) => set("store_preferences", e.target.value)}
-              />
             </div>
           </div>
         )}
@@ -900,57 +698,9 @@ function OnboardingPage() {
               </p>
             </div>
             <div>
-              <StepLabel text="intolerancias" />
-              <div className="flex flex-wrap gap-2">
-                {INTOLERANCE_OPTIONS.map((o) => (
-                  <Chip
-                    key={o}
-                    active={form.intolerances.includes(o)}
-                    label={o}
-                    onClick={() =>
-                      set("intolerances", form.intolerances.includes(o) ? form.intolerances.filter((x) => x !== o) : [...form.intolerances, o])
-                    }
-                  />
-                ))}
-              </div>
-            </div>
-            <div>
-              <StepLabel text="restricciones religiosas (opcional)" />
-              <input
-                className="input-pill w-full"
-                placeholder="Ej. sin cerdo"
-                value={form.religious_restrictions}
-                onChange={(e) => set("religious_restrictions", e.target.value)}
-              />
-            </div>
-            <div>
               <StepLabel text="alimentos favoritos y que evitas (opcional)" />
               <input className="input-pill w-full mb-2" placeholder="Favoritos, separados por coma" value={form.foods_liked} onChange={(e) => set("foods_liked", e.target.value)} />
               <input className="input-pill w-full" placeholder="Evito…, separados por coma" value={form.foods_disliked} onChange={(e) => set("foods_disliked", e.target.value)} />
-            </div>
-            <div>
-              <StepLabel text="tiempo para cocinar" />
-              <NumberField value={form.cooking_time_minutes} onChange={(v) => set("cooking_time_minutes", v)} placeholder="Ej. 30" suffix="min" />
-            </div>
-            <div>
-              <StepLabel text="equipo en cocina" />
-              <div className="flex flex-wrap gap-2">
-                {KITCHEN_OPTIONS.map((o) => (
-                  <Chip
-                    key={o}
-                    active={form.kitchen_equipment.includes(o)}
-                    label={o}
-                    onClick={() => toggle("kitchen_equipment", o)}
-                  />
-                ))}
-              </div>
-            </div>
-            <div>
-              <StepLabel text="comidas al día" />
-              <div className="flex gap-3">
-                <NumberField value={form.meals_per_day} onChange={(v) => set("meals_per_day", v)} placeholder="Ej. 3" suffix="comidas" />
-                <NumberField value={form.snacks_per_day} onChange={(v) => set("snacks_per_day", v)} placeholder="Ej. 1" suffix="snacks" />
-              </div>
             </div>
           </div>
         )}
@@ -981,20 +731,6 @@ function OnboardingPage() {
         )}
 
         {step === 8 && (
-          <div className="glass-floating p-6 flex flex-col gap-2">
-            <StepLabel text="formato del plan" />
-            {OUTPUT_OPTIONS.map((o) => (
-              <Toggle
-                key={o.v}
-                checked={form.output_preferences.includes(o.v)}
-                label={o.l}
-                onChange={() => toggle("output_preferences", o.v)}
-              />
-            ))}
-          </div>
-        )}
-
-        {step === 9 && (
           <div className="flex flex-col gap-5">
             <div className="flex flex-col gap-2">
               <OptionCard
@@ -1018,9 +754,9 @@ function OnboardingPage() {
                 ["Medidas", `${form.height_cm} cm · ${form.weight_kg} kg`],
                 ["Objetivo", goalLabel],
                 ["Nivel", form.experience],
-                ["Entreno", `${form.training_days} días · ${form.training_minutes} min`],
+                ["Entreno", `${form.training_days} días`],
                 ["Actividad", form.occupation_activity],
-                ["Presupuesto", `${form.budget_amount_mxn || 0} MXN/${form.budget_period || "—"} · ${form.household_size || 1} pers.`],
+                ["Presupuesto", `${form.budget_amount_mxn || 0} MXN/${form.budget_period || "—"}`],
                 ["Estilo", form.diet_style],
                 ["Modo", form.mode],
               ].map(([k, v]) => (

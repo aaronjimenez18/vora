@@ -68,6 +68,51 @@ export async function fetchActiveWorkout(userId: string): Promise<ActiveWorkout 
   return { plan: plan as WorkoutPlan, days: normalized as WorkoutDay[] };
 }
 
+export async function createCustomWorkoutPlan(
+  userId: string,
+  name?: string
+): Promise<WorkoutPlan> {
+  const { supabase, user } = await requireUser();
+  const { data, error } = await supabase
+    .from("workout_plans")
+    .insert({
+      user_id: userId,
+      name: name || "Mi rutina",
+      split_type: "custom",
+      days_per_week: 1,
+      source: "custom",
+      is_active: true,
+    })
+    .select()
+    .single();
+  if (user && error) throw error ?? new Error("No se pudo crear la rutina");
+  return data as WorkoutPlan;
+}
+
+export async function addWorkoutDay(
+  planId: string,
+  input: {
+    name?: string;
+    day_of_week?: number | null;
+    position?: number | null;
+  }
+): Promise<WorkoutDay> {
+  const { supabase, user } = await requireUser();
+  const { data, error } = await supabase
+    .from("workout_days")
+    .insert({
+      plan_id: planId,
+      name: input.name || "Día",
+      day_of_week: input.day_of_week ?? null,
+      position: input.position ?? null,
+      source: "custom",
+    })
+    .select()
+    .single();
+  if (user && error) throw error ?? new Error("No se pudo crear el día");
+  return { ...(data as WorkoutDay), exercises: [] };
+}
+
 export async function fetchActiveDiet(userId: string): Promise<ActiveDiet | null> {
   const supabase = createClient();
   const { data: plan } = await supabase

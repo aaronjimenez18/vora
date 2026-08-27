@@ -39,34 +39,17 @@ export interface UserProfile {
   activity_level?: string;
   mode: AppMode;
   updated_at: string;
-  sex_for_equation?: "male" | "female";
   budget_amount_mxn?: number;
   budget_period?: "per_day" | "per_week" | "per_month";
-  budget_includes_supplements?: boolean;
-  budget_includes_eating_out?: boolean;
-  household_size?: number;
-  shared_foods?: boolean;
-  shopping_frequency?: "daily" | "weekly" | "biweekly" | "monthly";
-  store_preferences?: string;
   diet_style?: "omnivore" | "vegetarian" | "vegan" | "pescatarian" | "other";
   allergies?: string[];
-  intolerances?: string[];
-  religious_restrictions?: string;
   foods_liked?: string[];
   foods_disliked?: string[];
-  cooking_time_minutes?: number;
-  kitchen_equipment?: string[];
-  meals_per_day?: number;
-  snacks_per_day?: number;
   occupation_activity?: string;
-  steps_per_day?: number;
   strength_days_per_week?: number;
   running_days_per_week?: number;
-  average_session_minutes?: number;
-  training_intensity?: "low" | "moderate" | "high";
   cardio_minutes_per_week?: number;
   health_flags?: string[];
-  output_preferences?: string[];
 }
 
 export interface Exercise {
