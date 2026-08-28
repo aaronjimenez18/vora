@@ -10,6 +10,7 @@ import {
   createSession,
   createCustomWorkoutPlan,
   addWorkoutDay,
+  updateWorkoutDay,
   fetchActiveWorkout,
   fetchExercises,
   fetchLatestE1RMs,
@@ -103,6 +104,7 @@ export default function WorkoutView() {
   const [creating, setCreating] = useState(false);
 
   const [selectedDay, setSelectedDay] = useState<WorkoutDay | null>(null);
+  const [dayName, setDayName] = useState("");
   const [history, setHistory] = useState<Awaited<ReturnType<typeof fetchSessionsForDay>>>([]);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [grid, setGrid] = useState<Record<number, SetRow[]>>({});
@@ -145,6 +147,7 @@ export default function WorkoutView() {
 
   async function selectDay(day: WorkoutDay) {
     setSelectedDay(day);
+    setDayName(day.name ?? "");
     setSessionId(null);
     setGrid({});
     setE1RMs(new Map());
@@ -162,6 +165,7 @@ export default function WorkoutView() {
     setWorkout(w);
     const nd = w?.days.find((d) => d.id === dayId) ?? null;
     setSelectedDay(nd);
+    if (nd) setDayName(nd.name ?? "");
     setVolDraft({});
   }
 
@@ -180,8 +184,8 @@ export default function WorkoutView() {
       const w = await fetchActiveWorkout(user.id);
       setWorkout(w);
       setSelectedDay(day);
+      setDayName(day.name ?? "");
       setEditing(true);
-      setPicker({ mode: "add" });
     } catch (err) {
       console.error("createWorkout", err);
     } finally {
@@ -190,6 +194,21 @@ export default function WorkoutView() {
   }
 
   const todayStr = new Date().toISOString().split("T")[0];
+
+  async function saveDayName() {
+    if (!selectedDay) return;
+    const trimmed = dayName.trim() || "Día";
+    if (trimmed === (selectedDay.name ?? "")) return;
+    setDayName(trimmed);
+    await updateWorkoutDay(selectedDay.id, { name: trimmed });
+    setSelectedDay((d) => (d ? { ...d, name: trimmed } : d));
+    if (workout) {
+      setWorkout({
+        ...workout,
+        days: workout.days.map((d) => (d.id === selectedDay.id ? { ...d, name: trimmed } : d)),
+      });
+    }
+  }
 
   async function startSession() {
     if (!selectedDay || !user) return;
@@ -462,7 +481,20 @@ export default function WorkoutView() {
         kicker="plan activo"
         title={workout.plan.name ?? "Rutina"}
         action={
-          <span className="label-caps">{workout.plan.split_type ?? ""}</span>
+          <div className="flex items-center gap-2">
+            {profile?.mode === "manual" && user && (
+              <button
+                onClick={createWorkout}
+                disabled={creating}
+                className="btn-pill-secondary py-2 px-3 !text-[11px] disabled:opacity-60 flex items-center gap-1"
+                title="Crear una nueva rutina"
+              >
+                <span className="material-symbols-outlined text-[14px]">add</span>
+                nueva
+              </button>
+            )}
+            <span className="label-caps">{workout.plan.split_type ?? ""}</span>
+          </div>
         }
       />
 
@@ -509,7 +541,7 @@ export default function WorkoutView() {
       {/* Vista de día */}
       {selectedDay && (
         <div className="flex flex-col gap-5">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-3">
             <button
               onClick={() => setSelectedDay(null)}
               className="flex items-center gap-1 text-xs text-[#a1a1aa] hover:text-[#f4f4f0]"
@@ -517,7 +549,20 @@ export default function WorkoutView() {
               <span className="material-symbols-outlined text-[16px]">arrow_back</span>
               rutinas
             </button>
-            <span className="text-sm text-[#f4f4f0] font-medium">{selectedDay.name}</span>
+            <div className="flex items-center gap-2 min-w-0">
+              <input
+                type="text"
+                value={dayName}
+                onChange={(e) => setDayName(e.target.value)}
+                onBlur={saveDayName}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                }}
+                placeholder="Nombre del día"
+                className="bg-transparent border-b border-white/[0.12] focus:border-[#a3e635] outline-none text-sm text-[#f4f4f0] font-medium text-right px-1 py-0.5 max-w-[55vw] transition-colors"
+              />
+              <span className="material-symbols-outlined text-[14px] text-[#52525b] shrink-0">edit</span>
+            </div>
           </div>
 
           {selectedDay.day_type === "running" || selectedDay.day_type === "cardio" ? (

@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import type { MealType, VisionFood } from "../../types";
+import { useLockBodyScroll } from "@/lib/useLockBodyScroll";
 
 const MEAL_ORDER: MealType[] = ["breakfast", "lunch", "dinner", "snack"];
 const MEAL_LABELS: Record<MealType, string> = {
@@ -42,6 +43,8 @@ export default function AICameraModal({
   const [mealType, setMealType] = useState<MealType>("snack");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+
+  useLockBodyScroll(true);
 
   function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -130,7 +133,7 @@ export default function AICameraModal({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-xl glass-modal-panel p-4 sm:p-6 flex flex-col gap-3 sm:gap-4 max-h-[82vh] sm:max-h-[85vh] overflow-hidden rounded-2xl sm:rounded-3xl"
+        className="w-full max-w-xl glass-modal-panel p-4 sm:p-6 flex flex-col gap-3 sm:gap-4 max-h-[82dvh] sm:max-h-[85dvh] overflow-hidden rounded-2xl sm:rounded-3xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between shrink-0">

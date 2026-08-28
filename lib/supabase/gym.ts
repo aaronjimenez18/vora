@@ -73,6 +73,11 @@ export async function createCustomWorkoutPlan(
   name?: string
 ): Promise<WorkoutPlan> {
   const { supabase, user } = await requireUser();
+  await supabase
+    .from("workout_plans")
+    .update({ is_active: false })
+    .eq("user_id", userId)
+    .eq("is_active", true);
   const { data, error } = await supabase
     .from("workout_plans")
     .insert({
@@ -111,6 +116,18 @@ export async function addWorkoutDay(
     .single();
   if (user && error) throw error ?? new Error("No se pudo crear el día");
   return { ...(data as WorkoutDay), exercises: [] };
+}
+
+export async function updateWorkoutDay(
+  dayId: string,
+  patch: { name?: string }
+): Promise<void> {
+  const { supabase } = await requireUser();
+  const { error } = await supabase
+    .from("workout_days")
+    .update(patch)
+    .eq("id", dayId);
+  if (error) throw error;
 }
 
 export async function fetchActiveDiet(userId: string): Promise<ActiveDiet | null> {

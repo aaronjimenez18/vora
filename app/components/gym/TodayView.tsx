@@ -390,7 +390,7 @@ export default function TodayView({ onNavigate }: { onNavigate: (tab: TabId) => 
           allergies={profile?.allergies ?? []}
           onAdd={(log: {
             meal_type: import("../../types").MealType;
-            food_id: string;
+            food_id?: string;
             custom_name: string;
             quantity: number;
             calories: number;

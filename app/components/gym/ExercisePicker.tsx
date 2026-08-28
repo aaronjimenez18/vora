@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { Exercise, Experience } from "../../types";
-import {
+import { useLockBodyScroll } from "@/lib/useLockBodyScroll";import {
   DIFFICULTY_RANK,
   EquipmentTier,
   ExerciseTemplate,
@@ -74,6 +74,8 @@ export default function ExercisePicker({
   const [unilateral, setUnilateral] = useState(false);
   const [vol, setVol] = useState({ sets: "3", repsLow: "10", repsHigh: "12", rir: "2" });
   const [info, setInfo] = useState<Exercise | null>(null);
+
+  useLockBodyScroll(true);
 
   const families = useMemo(() => {
     const map = new Map<string, Exercise[]>();
@@ -197,7 +199,7 @@ export default function ExercisePicker({
         onClick={onClose}
         className="absolute inset-0"
       />
-      <div className="glass-modal-panel relative w-full max-w-md max-h-[78vh] sm:max-h-[82vh] flex flex-col rounded-2xl sm:rounded-3xl overflow-hidden shadow-2xl">
+      <div className="glass-modal-panel relative w-full max-w-md max-h-[78dvh] sm:max-h-[82dvh] flex flex-col rounded-2xl sm:rounded-3xl overflow-hidden shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between px-6 pt-6 pb-3">
           <div>

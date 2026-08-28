@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useApp } from "../../context/AppContext";
-import type { Food, MealLog, MealType } from "../../types";
+import type { Food, MealLog, MealType, VisionFood } from "../../types";
 import {
   fetchActiveDiet,
   fetchActiveWorkout,
@@ -15,6 +15,7 @@ import {
 import { budgetBandsMXN, LOW_BUDGET_STRATEGY, pricePer100gFromRecord } from "@/lib/engine/nutrition";
 import { SectionHeader, Empty } from "./Shared";
 import AICameraModal from "./AICameraModal";
+import { useLockBodyScroll } from "@/lib/useLockBodyScroll";
 
 const MEAL_ORDER: MealType[] = ["breakfast", "lunch", "dinner", "snack"];
 const MEAL_LABELS: Record<MealType, string> = {
@@ -539,6 +540,18 @@ export default function DietView() {
   );
 }
 
+type PickableFood = {
+  id?: string;
+  name: string;
+  calories: number;
+  protein_g: number;
+  carbs_g: number;
+  fat_g: number;
+  fiber_g?: number;
+  cost_mxn?: number;
+  estimated?: boolean;
+};
+
 export function FoodPicker({
   allergies,
   onAdd,
@@ -547,7 +560,7 @@ export function FoodPicker({
   allergies: string[];
   onAdd: (log: {
     meal_type: MealType;
-    food_id: string;
+    food_id?: string;
     custom_name: string;
     quantity: number;
     calories: number;
@@ -562,9 +575,14 @@ export function FoodPicker({
   const [foods, setFoods] = useState<Food[]>([]);
   const [prices, setPrices] = useState<Record<string, number>>({});
   const [query, setQuery] = useState("");
-  const [selected, setSelected] = useState<Food | null>(null);
+  const [selected, setSelected] = useState<PickableFood | null>(null);
   const [grams, setGrams] = useState("100");
   const [mealType, setMealType] = useState<MealType>("snack");
+  const [geminiFoods, setGeminiFoods] = useState<VisionFood[]>([]);
+  const [geminiLoading, setGeminiLoading] = useState(false);
+  const [geminiError, setGeminiError] = useState("");
+
+  useLockBodyScroll(true);
 
   useEffect(() => {
     let active = true;
@@ -582,6 +600,37 @@ export function FoodPicker({
     return () => { active = false; };
   }, []);
 
+  // Consultar a Gemini cada vez que cambia la búsqueda (con debounce)
+  useEffect(() => {
+    const q = query.trim();
+    const t = setTimeout(async () => {
+      if (!q) {
+        setGeminiFoods([]);
+        setGeminiError("");
+        setGeminiLoading(false);
+        return;
+      }
+      setGeminiLoading(true);
+      setGeminiError("");
+      try {
+        const res = await fetch("/api/food-lookup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query: q }),
+        });
+        const j = await res.json();
+        if (!res.ok) throw new Error(j?.error ?? "No se pudo consultar");
+        setGeminiFoods(Array.isArray(j?.foods) ? (j.foods as VisionFood[]) : []);
+      } catch (e) {
+        setGeminiError(e instanceof Error ? e.message : "Error al buscar con IA.");
+        setGeminiFoods([]);
+      } finally {
+        setGeminiLoading(false);
+      }
+    }, 500);
+    return () => clearTimeout(t);
+  }, [query]);
+
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
     const isBlocked = (f: Food) => (f.allergens ?? []).some((a) => allergies.includes(a));
@@ -590,12 +639,58 @@ export function FoodPicker({
     return filtered.slice(0, 40);
   }, [foods, query, allergies]);
 
+  const catalogPickable = useMemo(
+    () =>
+      results.map(
+        (f) =>
+          ({
+            id: f.id,
+            name: f.name,
+            calories: f.calories ?? 0,
+            protein_g: f.protein_g ?? 0,
+            carbs_g: f.carbs_g ?? 0,
+            fat_g: f.fat_g ?? 0,
+            fiber_g: f.fiber_g ?? undefined,
+            cost_mxn: prices[f.id] ?? undefined,
+            estimated: false,
+          }) as PickableFood
+      ),
+    [results, prices]
+  );
+
+  const geminiPickable = useMemo(
+    () =>
+      geminiFoods
+        .map((vf) => {
+          const refGrams = (vf.grams ?? 100) || 1;
+          const norm = (n: number | undefined) => ((n ?? 0) / refGrams) * 100;
+          return {
+            name: vf.name,
+            calories: Math.round(norm(vf.calories)),
+            protein_g: Math.round(norm(vf.protein_g) * 10) / 10,
+            carbs_g: Math.round(norm(vf.carbs_g) * 10) / 10,
+            fat_g: Math.round(norm(vf.fat_g) * 10) / 10,
+            fiber_g: vf.fiber_g ? Math.round(norm(vf.fiber_g) * 10) / 10 : undefined,
+            estimated: true,
+          } as PickableFood;
+        })
+        .slice(0, 4),
+    [geminiFoods]
+  );
+
+  const combined = useMemo(
+    () => (query.trim() ? [...geminiPickable, ...catalogPickable] : catalogPickable),
+    [query, geminiPickable, catalogPickable]
+  );
+
+  const keyOf = (f: PickableFood) => `${f.estimated ? "ai" : "cat"}:${f.id ?? f.name}`;
+
   const selectedGrams = Number(grams) || 0;
   const k = selectedGrams / 100;
 
   const add = () => {
     if (!selected) return;
-    const p100 = prices[selected.id] ?? null;
+    const p100 = selected.id ? (prices[selected.id] ?? null) : null;
     onAdd({
       meal_type: mealType,
       food_id: selected.id,
@@ -619,7 +714,7 @@ export function FoodPicker({
       <div
         className="w-full sm:max-w-xl glass-modal-panel flex flex-col gap-3 overflow-hidden
                    rounded-t-[28px] sm:rounded-[28px]
-                   max-h-[90vh] sm:max-h-[85vh]"
+                   max-h-[90dvh] sm:max-h-[85dvh]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* handle bar móvil */}
@@ -669,12 +764,21 @@ export function FoodPicker({
 
         {/* lista */}
         <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-1.5 px-5 pb-2">
-          {results.map((food) => {
-            const isSel = selected?.id === food.id;
-            const p100 = prices[food.id] ?? null;
+          {query.trim() && geminiLoading && (
+            <div className="flex items-center gap-2 px-1 py-2 text-[11px] text-[#a1a1aa]">
+              <span className="w-3 h-3 rounded-full border-2 border-[#a3e635] border-t-transparent animate-spin shrink-0" />
+              buscando con IA…
+            </div>
+          )}
+          {query.trim() && !geminiLoading && geminiError && (
+            <span className="px-1 py-2 text-[11px] text-[#f87171]">{geminiError}</span>
+          )}
+          {combined.map((food) => {
+            const isSel = selected && keyOf(selected) === keyOf(food);
+            const p100 = food.id ? prices[food.id] ?? null : null;
             return (
               <button
-                key={food.id}
+                key={keyOf(food)}
                 onClick={() => setSelected(isSel ? null : food)}
                 className={`flex items-center justify-between p-3.5 rounded-2xl text-left transition-all gap-3 shrink-0 ${
                   isSel
@@ -687,16 +791,27 @@ export function FoodPicker({
                   <span className="label-meta block mt-0.5 truncate">
                     p:{food.protein_g} · c:{food.carbs_g} · f:{food.fat_g}
                     {food.fiber_g ? ` · fib:${food.fiber_g}` : ""} /100g
+                    {food.estimated ? " · estimado con IA" : ""}
                   </span>
                   {p100 !== null && (
                     <span className="block text-[10px] text-[#a3e635]/70 mt-0.5">≈ ${p100}/100g</span>
                   )}
                 </div>
-                <span className="font-mono-num text-xs text-[#a1a1aa] shrink-0">{food.calories} kcal</span>
+                <div className="text-right shrink-0">
+                  <span className="font-mono-num text-xs text-[#a1a1aa] block">{food.calories} kcal</span>
+                  {food.estimated && (
+                    <span className="material-symbols-outlined text-[14px] text-[#a78bfa] mt-0.5 block">auto_awesome</span>
+                  )}
+                </div>
               </button>
             );
           })}
-          {results.length === 0 && <Empty icon="search" title="sin resultados." />}
+          {!query.trim() && combined.length === 0 && (
+            <Empty icon="search" title="sin alimentos en el catálogo." />
+          )}
+          {query.trim() && !geminiLoading && combined.length === 0 && (
+            <Empty icon="search" title="sin resultados. Prueba con otra palabra." />
+          )}
         </div>
 
         {/* panel de confirmación */}

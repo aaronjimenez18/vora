@@ -2,6 +2,7 @@
 
 import type { Exercise } from "../../types";
 import { familyLabel, gearLabel } from "@/lib/engine/exercises";
+import { useLockBodyScroll } from "@/lib/useLockBodyScroll";
 
 const DIFF_LABEL: Record<string, string> = {
   beginner: "Principiante",
@@ -18,6 +19,8 @@ export default function ExerciseInfoSheet({
   unilateral?: boolean;
   onClose: () => void;
 }) {
+  useLockBodyScroll(true);
+
   if (!exercise) return null;
 
   const steps = (exercise.how_to ?? "")
@@ -39,7 +42,7 @@ export default function ExerciseInfoSheet({
         onClick={onClose}
         className="absolute inset-0"
       />
-      <div className="glass-modal-panel relative w-full max-w-md max-h-[78vh] sm:max-h-[82vh] overflow-y-auto rounded-2xl sm:rounded-3xl p-6 flex flex-col gap-5 shadow-2xl">
+      <div className="glass-modal-panel relative w-full max-w-md max-h-[78dvh] sm:max-h-[82dvh] overflow-y-auto rounded-2xl sm:rounded-3xl p-6 flex flex-col gap-5 shadow-2xl">
         <div className="flex items-start justify-between gap-3">
           <div>
             <span className="label-caps block mb-1.5">

@@ -2,6 +2,7 @@
 
 import type { AnalyzedDecision } from "@/lib/supabase/gym";
 import type { ProgressionAction } from "@/app/types";
+import { useLockBodyScroll } from "@/lib/useLockBodyScroll";
 
 const ACTION_META: Record<
   ProgressionAction,
@@ -50,6 +51,8 @@ export default function ProgressionSummary({
   onApplyAll: () => void;
   onClose: () => void;
 }) {
+  useLockBodyScroll(true);
+
   const pending = items.filter((i) => !appliedIds.has(i.decision.id));
 
   return (
@@ -59,7 +62,7 @@ export default function ProgressionSummary({
         onClick={onClose}
         className="absolute inset-0"
       />
-      <div className="glass-modal-panel relative w-full max-w-md max-h-[78vh] sm:max-h-[82vh] overflow-y-auto rounded-2xl sm:rounded-3xl p-6 flex flex-col gap-5 shadow-2xl">
+      <div className="glass-modal-panel relative w-full max-w-md max-h-[78dvh] sm:max-h-[82dvh] overflow-y-auto rounded-2xl sm:rounded-3xl p-6 flex flex-col gap-5 shadow-2xl">
         <div className="flex items-start justify-between gap-3">
           <div>
             <span className="label-caps block mb-1.5">análisis de la sesión</span>

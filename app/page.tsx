@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AppProvider, useApp } from "./context/AppContext";
 import type { TabId } from "./types";
 import { insertMealLog } from "@/lib/supabase/gym";
@@ -19,6 +19,11 @@ function VoraApp() {
   const { state, dispatch, authLoading, user, profile, profileLoading } = useApp();
   const [cameraOpen, setCameraOpen] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
+
+  // Cada vez que se cambia de pantalla (tab), volver al inicio
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [state.activeTab]);
 
   // Puerta de auth: esperar resolución de sesión
   if (authLoading) {
